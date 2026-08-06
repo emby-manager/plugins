@@ -5,6 +5,7 @@ import {
   type ExternalAccountSnapshot,
   type PluginContext,
 } from '@emby-manager/plugin-sdk'
+import { adminActions } from './admin.ts'
 
 function field(body: unknown, ...names: string[]): unknown {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return undefined
@@ -187,6 +188,7 @@ const handlers = {
 }
 
 export default definePlugin({
+  actions: adminActions,
   externalAccountAdapters: {
     fabric: { handlers },
   },
