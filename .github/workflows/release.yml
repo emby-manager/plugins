@@ -90,6 +90,7 @@ jobs:
           done
           gh pr checks "$pr_url" --required --watch --fail-fast --interval 3
           gh pr merge "$pr_url" --squash --delete-branch
+          gh workflow run sync-develop-from-here.yml --ref main
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-plugin-package
