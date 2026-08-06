@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "title": "Hello Plugin",
+  "description": "这是声明式 UI、隔离运行器与能力审批的参考实现。",
+  "sections": [
+    {
+      "id": "overview",
+      "columns": 2,
+      "blocks": [
+        { "type": "text", "id": "security", "title": "隔离运行", "content": "插件无法读取 EM 源码、Prisma、环境变量或站点 Token。", "tone": "success" },
+        { "type": "action", "id": "greet", "title": "向我问好", "description": "调用经过认证的插件 Action。", "action": "greet" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "dev.emby-manager.hello-world",
+  "name": "Hello World",
+  "version": "1.0.0",
+  "apiVersion": "2",
+  "description": "Plugin System V2 reference implementation.",
+  "author": "Emby Manager",
+  "repository": "https://github.com/emby-manager/plugins",
+  "license": "MIT",
+  "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
+  "entrypoints": { "server": "src/server.ts" },
+  "capabilities": ["storage.kv.read", "storage.kv.write", "user.profile.self.read"],
+  "actions": [{ "name": "greet", "title": "Greet me", "access": "user" }],
+  "pages": [{ "id": "hello", "path": "/plugins/hello", "title": "Hello Plugin", "description": "V2 reference plugin", "location": "user", "schema": "ui/hello.json" }],
+  "defaultConfig": { "greeting": "欢迎使用 EM 插件系统" }
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "title": "My Plugin",
+  "description": "Rendered by Emby Manager's declarative UI engine.",
+  "sections": [
+    {
+      "id": "welcome",
+      "columns": 2,
+      "blocks": [
+        { "type": "text", "id": "intro", "title": "Ready", "content": "This page inherits the site theme and mobile layout.", "tone": "info" },
+        { "type": "action", "id": "hello", "title": "Say hello", "action": "hello", "variant": "default" }
+      ]
+    }
+  ]
+}

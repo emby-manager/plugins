@@ -1,0 +1,66 @@
+name: Sign and publish plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: Directory name below plugins/
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: plugin-catalog-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: plugin-signing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.10.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Build signed package
+        env:
+          EM_PLUGIN_SIGNING_KEY: ${{ secrets.EM_PLUGIN_SIGNING_KEY }}
+          EM_PLUGIN_SIGNING_KEY_ID: ${{ vars.EM_PLUGIN_SIGNING_KEY_ID }}
+          EM_PLUGIN_PUBLISHER: Emby Manager
+          PLUGIN_DIR: ${{ inputs.plugin }}
+        run: node packages/cli/dist/index.js build "plugins/$PLUGIN_DIR" dist
+      - name: Read release metadata
+        id: metadata
+        env:
+          PLUGIN_DIR: ${{ inputs.plugin }}
+        run: node -e "const fs=require('fs');const p=require('./plugins/'+process.env.PLUGIN_DIR+'/plugin.json');fs.appendFileSync(process.env.GITHUB_OUTPUT,'tag='+p.id+'-v'+p.version+'\\nfilename='+p.id+'-'+p.version+'.emp\\n')"
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag }}
+          name: ${{ steps.metadata.outputs.tag }}
+          files: dist/${{ steps.metadata.outputs.filename }}
+      - name: Update and sign catalog
+        env:
+          EM_PLUGIN_SIGNING_KEY: ${{ secrets.EM_PLUGIN_SIGNING_KEY }}
+          EM_PLUGIN_SIGNING_KEY_ID: ${{ vars.EM_PLUGIN_SIGNING_KEY_ID }}
+          DOWNLOAD_URL: https://github.com/emby-manager/plugins/releases/download/${{ steps.metadata.outputs.tag }}/${{ steps.metadata.outputs.filename }}
+        run: |
+          node packages/cli/dist/index.js catalog-add "dist/${{ steps.metadata.outputs.filename }}" "$DOWNLOAD_URL"
+          node packages/cli/dist/index.js catalog-sign
+      - name: Publish signed catalog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog/index.json catalog/signature.json
+          git commit -m "chore(catalog): publish ${{ steps.metadata.outputs.tag }}"
+          git push
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-plugin-package
+          path: dist/*.emp
+          if-no-files-found: error

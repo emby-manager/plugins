@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "id": "dev.example.my-plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "apiVersion": "2",
+  "description": "A safe Emby Manager V2 plugin.",
+  "author": "Your name",
+  "license": "MIT",
+  "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
+  "entrypoints": { "server": "src/server.ts" },
+  "capabilities": ["storage.kv.read", "storage.kv.write", "user.profile.self.read"],
+  "actions": [{ "name": "hello", "title": "Say hello", "access": "user" }],
+  "pages": [{ "id": "dashboard", "path": "/plugins/my-plugin", "title": "My Plugin", "location": "user", "schema": "ui/dashboard.json" }],
+  "defaultConfig": { "greeting": "Hello" }
+}
