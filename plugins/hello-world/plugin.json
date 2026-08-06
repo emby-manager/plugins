@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "dev.emby-manager.hello-world",
   "name": "Hello World",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "apiVersion": "2",
   "description": "Plugin System V2 reference implementation.",
   "author": "Emby Manager",
