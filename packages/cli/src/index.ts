@@ -330,6 +330,31 @@ async function signCatalog(): Promise<void> {
   }, null, 2)}\n`)
 }
 
+async function verifyCatalog(): Promise<void> {
+  const verificationKey = process.env.EM_PLUGIN_VERIFY_KEY
+  const signingKey = process.env.EM_PLUGIN_SIGNING_KEY
+  if (!verificationKey && !signingKey) {
+    throw new Error('catalog verification requires EM_PLUGIN_VERIFY_KEY or EM_PLUGIN_SIGNING_KEY')
+  }
+  const publicKey = verificationKey
+    ? crypto.createPublicKey(verificationKey)
+    : crypto.createPublicKey(crypto.createPrivateKey(signingKey!))
+  const catalog = JSON.parse(await fsp.readFile(path.join(root, 'catalog/index.json'), 'utf8'))
+  const signature = JSON.parse(await fsp.readFile(path.join(root, 'catalog/signature.json'), 'utf8'))
+  if (signature.algorithm !== 'Ed25519' || typeof signature.keyId !== 'string' || typeof signature.signature !== 'string') {
+    throw new Error('catalog signature metadata is invalid')
+  }
+  if (process.env.EM_PLUGIN_SIGNING_KEY_ID && signature.keyId !== process.env.EM_PLUGIN_SIGNING_KEY_ID) {
+    throw new Error('catalog signature Key ID does not match the release identity')
+  }
+  const catalogDigest = digest(canonicalJson(catalog))
+  if (signature.catalogDigest !== catalogDigest) throw new Error('catalog digest does not match its signature metadata')
+  if (!crypto.verify(null, Buffer.from(catalogDigest, 'hex'), publicKey, Buffer.from(signature.signature, 'base64'))) {
+    throw new Error('catalog signature verification failed')
+  }
+  process.stdout.write(`OK: signed catalog (${catalog.plugins?.length || 0} plugins, ${catalogDigest})\n`)
+}
+
 async function validateAll(): Promise<void> {
   const pluginsDir = path.join(root, 'plugins')
   const entries = await fsp.readdir(pluginsDir, { withFileTypes: true }).catch(() => [])
@@ -346,7 +371,8 @@ async function main() {
   if (command === 'validate-all') return validateAll()
   if (command === 'catalog-add') return addCatalogEntry(target, output)
   if (command === 'catalog-sign') return signCatalog()
-  throw new Error('Usage: em-plugin build <plugin-dir> [output-dir] | verify <package.emp> | validate-all | catalog-add <package.emp> <download-url> | catalog-sign')
+  if (command === 'catalog-verify') return verifyCatalog()
+  throw new Error('Usage: em-plugin build <plugin-dir> [output-dir] | verify <package.emp> | validate-all | catalog-add <package.emp> <download-url> | catalog-sign | catalog-verify')
 }
 
 main().catch((error) => { console.error(error instanceof Error ? error.message : error); process.exit(1) })
