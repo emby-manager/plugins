@@ -3,6 +3,12 @@ name: PR scope
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to validate
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,17 +23,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: |
           set -euo pipefail
+          pr_author=$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.user.login')
+          pr_head=$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.head.ref')
           mapfile -t changed_paths < <(
             gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" \
               --jq '.[] | .filename, (.previous_filename // empty)'
           )
 
-          if [[ "$PR_AUTHOR" == "github-actions[bot]" && "$PR_HEAD" == catalog-release/* ]]; then
+          if [[ "$pr_author" == "github-actions[bot]" && "$pr_head" == catalog-release/* ]]; then
             for changed_path in "${changed_paths[@]}"; do
               [[ "$changed_path" == "catalog/index.json" || "$changed_path" == "catalog/signature.json" ]] || {
                 echo "::error file=$changed_path::The release bot may only update the signed catalog pair."
