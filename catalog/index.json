@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-06T14:12:25.625Z",
+  "generatedAt": "2026-08-06T14:14:26.913Z",
   "plugins": [
     {
       "id": "dev.emby-manager.hello-world",
@@ -30,6 +30,26 @@
             "node": ">=24"
           },
           "publishedAt": "2026-08-06T09:26:03.267Z"
+        }
+      ]
+    },
+    {
+      "id": "io.emby-manager.adapter.embyboss",
+      "name": "EmbyBoss 外部账号适配器",
+      "description": "将 Sakura EmbyBoss 的 Emby 账号管理协议安全映射到 EM 托管的 EA 账号生命周期。",
+      "author": "Emby Manager",
+      "repository": "https://github.com/emby-manager/plugins",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/io.emby-manager.adapter.embyboss-v2.0.0/io.emby-manager.adapter.embyboss-2.0.0.emp",
+          "packageDigest": "734ee33f2b360502e1a06d2621cd2e9438d38631dd56aa41a82864b674381e1d",
+          "keyId": "emby-manager-official-2026-01",
+          "engines": {
+            "embyManager": ">=0.1.9.4 <0.2.0",
+            "node": ">=24"
+          },
+          "publishedAt": "2026-08-06T14:14:26.906Z"
         }
       ]
     },
