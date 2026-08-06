@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "title": "快速导入",
+  "description": "将当前账号可用的 Emby 线路导入 SenPlayer。",
+  "sections": [
+    {
+      "id": "privacy",
+      "blocks": [
+        {
+          "type": "text",
+          "id": "credential-notice",
+          "title": "凭据仅用于本次导入",
+          "content": "用户名和密码只会写入你主动生成的 SenPlayer 深链接，不会保存到插件数据、Secret 或审计日志。",
+          "tone": "info"
+        }
+      ]
+    },
+    {
+      "id": "import",
+      "blocks": [
+        {
+          "type": "form",
+          "id": "senplayer-credentials",
+          "title": "Emby 登录信息",
+          "action": "build-senplayer-imports",
+          "submitLabel": "生成导入入口",
+          "fields": [
+            {
+              "name": "username",
+              "label": "Emby 用户名",
+              "type": "text",
+              "required": true,
+              "placeholder": "请输入 Emby 用户名"
+            },
+            {
+              "name": "password",
+              "label": "Emby 密码",
+              "type": "password",
+              "required": true,
+              "placeholder": "请输入 Emby 密码"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

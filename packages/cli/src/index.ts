@@ -70,6 +70,15 @@ function validateManifest(input: unknown): void {
   ) {
     throw new Error('network.read/network.write requires network.allowedHosts')
   }
+  if (manifest.externalAccountAdapters?.length && !manifest.entrypoints?.server) {
+    throw new Error('externalAccountAdapters requires a server entrypoint')
+  }
+  const adapterIds = (manifest.externalAccountAdapters || []).map((adapter: any) => adapter.id)
+  if (new Set(adapterIds).size !== adapterIds.length) throw new Error('external account adapter IDs must be unique')
+  for (const adapter of manifest.externalAccountAdapters || []) {
+    const routes = adapter.routes.map((route: any) => `${route.method} ${adapter.basePath}${route.path}`)
+    if (new Set(routes).size !== routes.length) throw new Error(`external account adapter ${adapter.id} has duplicate routes`)
+  }
   if (manifest.configSchema) {
     assertSafeConfigSchema(manifest.configSchema)
     const validateConfig = new Ajv2020({ allErrors: true, strict: true }).compile(manifest.configSchema)

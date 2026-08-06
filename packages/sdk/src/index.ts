@@ -13,6 +13,7 @@ export const PLUGIN_CAPABILITIES = [
   'emby.account.self.read',
   'emby.account.any.read',
   'emby.account.expiry.write',
+  'emby.connection.self.read',
   'emby.library.read',
   'notification.self.send',
   'notification.any.send',
@@ -20,9 +21,47 @@ export const PLUGIN_CAPABILITIES = [
   'network.write',
   'scheduler.read',
   'scheduler.write',
+  'external-account.provider.read',
+  'external-account.account.read',
+  'external-account.account.create',
+  'external-account.account.authenticate',
+  'external-account.account.password.write',
+  'external-account.account.policy.write',
+  'external-account.account.delete',
+  'external-account.library.read',
+  'external-account.items.read',
+  'external-account.favorites.write',
 ] as const
 
 export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number]
+
+export interface ExternalAccountAdapterRequest {
+  method: string
+  path: string
+  params: Record<string, string>
+  query: Record<string, string | string[]>
+  headers: Record<string, string>
+  body: unknown
+  requestId: string | null
+}
+
+export interface ExternalAccountAdapterResponse {
+  status: number
+  headers?: Record<string, string>
+  body?: unknown
+}
+
+export interface ExternalAccountSnapshot {
+  id: string
+  name: string
+  hasPassword: boolean
+  serverId: string
+  dateCreated: string
+  state: string
+  expiresAt: string | null
+  policy: Record<string, unknown>
+  configuration: Record<string, unknown>
+}
 
 export interface PluginContext {
   plugin: Readonly<{ id: string; version: string }>
@@ -55,6 +94,7 @@ export interface PluginContext {
     listMyAccounts(): Promise<unknown[]>
     listAccounts(userId: number): Promise<unknown[]>
     updateExpiry(accountId: number, activateTo: string): Promise<unknown>
+    listMyConnections(): Promise<unknown[]>
     listLibrary(options?: { search?: string; limit?: number }): Promise<unknown[]>
   }
   notifications: {
@@ -80,6 +120,25 @@ export interface PluginContext {
     }>
     delete(name: string): Promise<{ deleted: boolean }>
   }
+  externalAccounts: {
+    getProvider(): Promise<{ id: string; name: string; kind: string; server: { id: string; name: string } }>
+    listAccounts(): Promise<ExternalAccountSnapshot[]>
+    getAccount(accountId: string): Promise<ExternalAccountSnapshot>
+    createAccount(input: {
+      name: unknown
+      password?: string
+      expiresAt?: string | null
+      idempotencyKey?: string | null
+    }): Promise<{ account: ExternalAccountSnapshot; created: boolean }>
+    authenticate(name: unknown, password?: string): Promise<{ account: ExternalAccountSnapshot; serverId: string }>
+    setPassword(accountId: string, password: string): Promise<{ ok: true }>
+    setPolicy(accountId: string, policy: unknown): Promise<{ ok: true }>
+    deleteAccount(accountId: string): Promise<{ ok: true }>
+    listLibraries(): Promise<{ status: number; contentType: string; body: unknown }>
+    listItems(accountId: string, query?: unknown): Promise<{ status: number; contentType: string; body: unknown }>
+    getItem(accountId: string, itemId: string, query?: unknown): Promise<{ status: number; contentType: string; body: unknown }>
+    setFavorite(accountId: string, itemId: string, favorite: boolean, query?: unknown): Promise<{ status: number; contentType: string; body: unknown }>
+  }
 }
 
 export interface PluginDefinition {
@@ -87,6 +146,12 @@ export interface PluginDefinition {
   deactivate?(context: PluginContext): void | Promise<void>
   actions?: Record<string, (input: any, context: PluginContext) => unknown | Promise<unknown>>
   hooks?: Record<string, (payload: any, context: PluginContext) => void | Promise<void>>
+  externalAccountAdapters?: Record<string, {
+    handlers: Record<string, (
+      request: ExternalAccountAdapterRequest,
+      context: PluginContext,
+    ) => ExternalAccountAdapterResponse | Promise<ExternalAccountAdapterResponse>>
+  }>
 }
 
 export function definePlugin<T extends PluginDefinition>(definition: T): T {

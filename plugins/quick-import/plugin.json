@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "id": "io.emby-manager.quick-import",
+  "name": "快速导入",
+  "version": "2.0.0",
+  "apiVersion": "2",
+  "description": "将当前用户可用的 Emby 线路快速导入 SenPlayer。",
+  "author": "Emby Manager",
+  "repository": "https://github.com/emby-manager/plugins",
+  "license": "MIT",
+  "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
+  "entrypoints": { "server": "src/server.ts" },
+  "capabilities": ["emby.connection.self.read"],
+  "actions": [
+    {
+      "name": "build-senplayer-imports",
+      "title": "生成 SenPlayer 导入入口",
+      "description": "读取当前用户可用线路并生成一次性深链接。",
+      "access": "user"
+    }
+  ],
+  "pages": [
+    {
+      "id": "quick-import",
+      "path": "/plugins/quick-import",
+      "title": "快速导入",
+      "description": "将 Emby 服务器快速导入 SenPlayer。",
+      "icon": "Download",
+      "location": "user",
+      "schema": "ui/quick-import.json"
+    }
+  ]
+}

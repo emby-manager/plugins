@@ -41,8 +41,14 @@
           "user.profile.self.read", "user.profile.any.read",
           "user.email.self.read", "user.email.any.read", "user.directory.read",
           "emby.account.self.read", "emby.account.any.read", "emby.account.expiry.write",
+          "emby.connection.self.read",
           "emby.library.read", "notification.self.send", "notification.any.send",
-          "network.read", "network.write", "scheduler.read", "scheduler.write"
+          "network.read", "network.write", "scheduler.read", "scheduler.write",
+          "external-account.provider.read", "external-account.account.read",
+          "external-account.account.create", "external-account.account.authenticate",
+          "external-account.account.password.write", "external-account.account.policy.write",
+          "external-account.account.delete", "external-account.library.read",
+          "external-account.items.read", "external-account.favorites.write"
         ]
       }
     },
@@ -96,6 +102,40 @@
           "icon": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9-]{0,63}$" },
           "location": { "enum": ["user", "admin"] },
           "schema": { "type": "string", "pattern": "^ui/[A-Za-z0-9_./-]+\\.json$", "maxLength": 255 }
+        }
+      }
+    },
+    "externalAccountAdapters": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "kind", "basePath", "routes"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 500 },
+          "kind": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,23}$" },
+          "basePath": { "type": "string", "pattern": "^/(?:[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)?$", "maxLength": 180 },
+          "addressHint": { "type": "string", "maxLength": 500 },
+          "configHint": { "type": "string", "maxLength": 500 },
+          "routes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["method", "path", "handler"],
+              "properties": {
+                "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+                "path": { "type": "string", "pattern": "^/(?:[A-Za-z0-9._-]+|:[a-z][A-Za-z0-9]*)(?:/(?:[A-Za-z0-9._-]+|:[a-z][A-Za-z0-9]*))*$", "maxLength": 220 },
+                "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+                "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 60000 }
+              }
+            }
+          }
         }
       }
     },
