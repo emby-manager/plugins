@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "title": "EmbyBoss 外部账号接入",
+  "description": "正在由 EmbyBoss 插件读取接入、账号映射与审计数据。",
+  "loadAction": "load-admin",
+  "sections": [
+    {
+      "id": "loading",
+      "blocks": [
+        {
+          "type": "text",
+          "id": "loading-status",
+          "title": "正在加载 EmbyBoss 管理页",
+          "content": "页面与管理流程由已签名的 EmbyBoss 插件提供。",
+          "tone": "info"
+        }
+      ]
+    }
+  ]
+}
