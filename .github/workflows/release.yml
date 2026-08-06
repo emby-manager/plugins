@@ -16,16 +16,25 @@ concurrency:
 
 jobs:
   release:
+    if: github.repository == 'emby-manager/plugins' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: plugin-signing
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24.10.0
           cache: npm
+      - name: Validate release target
+        env:
+          PLUGIN_DIR: ${{ inputs.plugin }}
+        run: |
+          if [[ ! "$PLUGIN_DIR" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]] || [[ ! -f "plugins/$PLUGIN_DIR/plugin.json" ]]; then
+            echo "Invalid plugin directory: $PLUGIN_DIR" >&2
+            exit 1
+          fi
       - run: npm ci
-      - run: npm run build
+      - run: npm run validate
       - name: Build signed package
         env:
           EM_PLUGIN_SIGNING_KEY: ${{ secrets.EM_PLUGIN_SIGNING_KEY }}
@@ -39,11 +48,11 @@ jobs:
           PLUGIN_DIR: ${{ inputs.plugin }}
         run: node -e "const fs=require('fs');const p=require('./plugins/'+process.env.PLUGIN_DIR+'/plugin.json');fs.appendFileSync(process.env.GITHUB_OUTPUT,'tag='+p.id+'-v'+p.version+'\\nfilename='+p.id+'-'+p.version+'.emp\\n')"
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.metadata.outputs.tag }}
-          name: ${{ steps.metadata.outputs.tag }}
-          files: dist/${{ steps.metadata.outputs.filename }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.metadata.outputs.tag }}
+          PACKAGE_FILE: dist/${{ steps.metadata.outputs.filename }}
+        run: gh release create "$TAG" "$PACKAGE_FILE" --title "$TAG" --generate-notes
       - name: Update and sign catalog
         env:
           EM_PLUGIN_SIGNING_KEY: ${{ secrets.EM_PLUGIN_SIGNING_KEY }}
@@ -59,7 +68,7 @@ jobs:
           git add catalog/index.json catalog/signature.json
           git commit -m "chore(catalog): publish ${{ steps.metadata.outputs.tag }}"
           git push
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-plugin-package
           path: dist/*.emp
