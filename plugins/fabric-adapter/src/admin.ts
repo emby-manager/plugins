@@ -51,6 +51,26 @@ async function page(
   }).slice(0, 50)
   const active = accounts.filter((account) => account.state === 'ACTIVE').length
   const issues = accounts.filter((account) => ['FAILED', 'PENDING', 'DELETE_PENDING'].includes(account.state)).length
+  await ctx.storage.set('external-admin/state-v1', {
+    schemaVersion: 1,
+    updatedAt: new Date().toISOString(),
+    providers: providers.map((provider) => ({
+      id: provider.id,
+      name: provider.name,
+      adapterId: provider.adapterId,
+      serverId: provider.server.id,
+      routePackageId: provider.routePackageId,
+      enabled: provider.enabled,
+    })),
+    accounts: accounts.map((account) => ({
+      id: account.id,
+      providerId: account.provider.id,
+      externalName: account.externalName,
+      state: account.state,
+      lastSyncAt: account.lastSyncAt,
+      failureReason: account.failureReason?.slice(0, 500) || null,
+    })),
+  })
 
   return {
     version: 1,
