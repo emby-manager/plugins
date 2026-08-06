@@ -13,6 +13,8 @@ cp -R templates/basic plugins/my-plugin
 npm run plugin:build -- plugins/my-plugin
 ```
 
+不想拉取整个插件合集时，可以从长期维护的 `develop-from-here` 分支做 partial clone + sparse checkout。具体命令与“单个 PR 只能修改一个插件目录”的门禁规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 构建结果是 `.emp` 文件。EM 不会在服务器上安装 npm 依赖或编译 TypeScript，因此必须在提交或导入前完成本地构建。
 
 如需周期任务，读取状态申请 `scheduler.read`，创建、修改或删除任务申请 `scheduler.write`；同时声明 `schedule.<任务名>` 事件，再通过 `ctx.scheduler.upsert()` 注册。插件不能直接导入 Node 模块或自行联网；文件、网络、用户、媒体、通知、Secret 与调度都必须走 SDK 能力接口。
