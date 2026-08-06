@@ -48,7 +48,12 @@
           "external-account.account.create", "external-account.account.authenticate",
           "external-account.account.password.write", "external-account.account.policy.write",
           "external-account.account.delete", "external-account.library.read",
-          "external-account.items.read", "external-account.favorites.write"
+          "external-account.items.read", "external-account.favorites.write",
+          "external-account.provider.manage.read", "external-account.provider.manage.create",
+          "external-account.provider.manage.update", "external-account.provider.manage.secret.rotate",
+          "external-account.provider.manage.delete", "external-account.provider.manage.reconcile",
+          "external-account.account.manage.read", "external-account.account.manage.reconcile",
+          "external-account.account.manage.delete", "external-account.audit.read"
         ]
       }
     },
