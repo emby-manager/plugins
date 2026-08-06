@@ -31,6 +31,16 @@ export const PLUGIN_CAPABILITIES = [
   'external-account.library.read',
   'external-account.items.read',
   'external-account.favorites.write',
+  'external-account.provider.manage.read',
+  'external-account.provider.manage.create',
+  'external-account.provider.manage.update',
+  'external-account.provider.manage.secret.rotate',
+  'external-account.provider.manage.delete',
+  'external-account.provider.manage.reconcile',
+  'external-account.account.manage.read',
+  'external-account.account.manage.reconcile',
+  'external-account.account.manage.delete',
+  'external-account.audit.read',
 ] as const
 
 export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number]
@@ -61,6 +71,35 @@ export interface ExternalAccountSnapshot {
   expiresAt: string | null
   policy: Record<string, unknown>
   configuration: Record<string, unknown>
+}
+
+export interface ExternalAccountAdminProvider {
+  id: string
+  name: string
+  slug: string
+  kind: string
+  adapterPluginId: string
+  adapterId: string
+  routePackageId: number | null
+  enabled: boolean
+  secretPrefix: string
+  lastUsedAt: string | null
+  server: { id: string; name: string; isActive: boolean }
+  routePackage: { id: number; name: string } | null
+  accountCounts: Record<string, number>
+}
+
+export interface ExternalAccountAdminAccount {
+  id: string
+  externalName: string
+  state: string
+  createdAt: string
+  lastSyncAt: string | null
+  failureReason: string | null
+  provider: { id: string; name: string; kind: string; slug: string }
+  server: { id: string; name: string }
+  internalUser: { id: number; userName: string }
+  embyUser: { id: number; embyId: string | null; activateTo: string | null } | null
 }
 
 export interface PluginContext {
@@ -138,6 +177,45 @@ export interface PluginContext {
     listItems(accountId: string, query?: unknown): Promise<{ status: number; contentType: string; body: unknown }>
     getItem(accountId: string, itemId: string, query?: unknown): Promise<{ status: number; contentType: string; body: unknown }>
     setFavorite(accountId: string, itemId: string, favorite: boolean, query?: unknown): Promise<{ status: number; contentType: string; body: unknown }>
+  }
+  externalAccountsAdmin: {
+    getOptions(): Promise<{
+      servers: Array<{
+        id: string
+        name: string
+        isActive: boolean
+        ready: boolean
+        routePackages: Array<{ id: number; name: string }>
+      }>
+      adapters: Array<{ id: string; name: string; kind: string; description?: string; addressHint?: string; configHint?: string }>
+    }>
+    listProviders(): Promise<ExternalAccountAdminProvider[]>
+    createProvider(input: {
+      name: string
+      adapterId: string
+      serverId: string
+      routePackageId?: number | null
+    }): Promise<{ provider: ExternalAccountAdminProvider; secret: string }>
+    updateProvider(providerId: string, input: {
+      name?: string
+      enabled?: boolean
+      routePackageId?: number | null
+    }): Promise<ExternalAccountAdminProvider>
+    rotateProviderSecret(providerId: string): Promise<{ provider: ExternalAccountAdminProvider; secret: string }>
+    deleteProvider(providerId: string): Promise<{ deleted: boolean }>
+    reconcileProvider(providerId: string): Promise<{ checked: number; repaired: number; failed: number }>
+    listAccounts(input?: { providerId?: string; state?: string; search?: string }): Promise<ExternalAccountAdminAccount[]>
+    reconcileAccount(providerId: string, accountId: string): Promise<unknown>
+    deleteAccount(providerId: string, accountId: string): Promise<{ deleted: boolean }>
+    listAudits(input?: { providerId?: string }): Promise<Array<{
+      id: number
+      createdAt: string
+      action: string
+      outcome: string
+      ip: string | null
+      provider: { id: string; name: string }
+      account: { id: string; externalName: string } | null
+    }>>
   }
 }
 
