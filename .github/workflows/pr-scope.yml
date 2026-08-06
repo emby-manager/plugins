@@ -18,6 +18,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
           set -euo pipefail
           mapfile -t changed_paths < <(
@@ -27,6 +30,7 @@ jobs:
 
           declare -A plugin_directories=()
           changed_count=0
+          outside_plugin_count=0
 
           for changed_path in "${changed_paths[@]}"; do
             [[ -n "$changed_path" ]] || continue
@@ -34,8 +38,7 @@ jobs:
             if [[ "$changed_path" =~ ^plugins/([^/]+)/.+$ ]]; then
               plugin_directories["${BASH_REMATCH[1]}"]=1
             else
-              echo "::error file=$changed_path::Plugin PRs may only modify files below one plugins/<plugin>/ directory."
-              exit 1
+              outside_plugin_count=$((outside_plugin_count + 1))
             fi
           done
 
@@ -43,9 +46,30 @@ jobs:
             echo "::error::The PR does not contain any changed files."
             exit 1
           fi
-          if (( ${#plugin_directories[@]} != 1 )); then
-            echo "::error::A PR must modify exactly one plugins/<plugin>/ directory; found ${#plugin_directories[@]}."
+          if (( ${#plugin_directories[@]} > 1 )); then
+            echo "::error::A PR may modify at most one plugins/<plugin>/ directory; found ${#plugin_directories[@]}."
             exit 1
           fi
 
-          echo "Accepted plugin directory: ${!plugin_directories[*]}"
+          if (( ${#plugin_directories[@]} == 1 )); then
+            if (( outside_plugin_count > 0 )); then
+              echo "::error::Plugin PRs may not modify files outside their single plugins/<plugin>/ directory."
+              exit 1
+            fi
+            echo "Accepted plugin directory: ${!plugin_directories[*]}"
+            exit 0
+          fi
+
+          if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" || ! "$HEAD_BRANCH" =~ ^maintenance/ ]]; then
+            echo "::error::Repository infrastructure changes require an in-repository maintenance/* branch."
+            exit 1
+          fi
+          case "$AUTHOR_ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              echo "::error::Only repository maintainers may submit infrastructure-only changes."
+              exit 1
+              ;;
+          esac
+
+          echo "Accepted maintainer infrastructure PR: $HEAD_BRANCH"
