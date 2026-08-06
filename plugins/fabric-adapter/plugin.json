@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "id": "io.emby-manager.adapter.fabric",
+  "name": "Fabric 外部账号适配器",
+  "version": "2.0.0",
+  "apiVersion": "2",
+  "description": "将 Fabric 的 Emby 账号管理协议安全映射到 EM 托管的 EA 账号生命周期。",
+  "author": "Emby Manager",
+  "repository": "https://github.com/emby-manager/plugins",
+  "license": "MIT",
+  "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
+  "entrypoints": { "server": "src/server.ts" },
+  "capabilities": [
+    "external-account.provider.read",
+    "external-account.account.read",
+    "external-account.account.create",
+    "external-account.account.authenticate",
+    "external-account.account.password.write",
+    "external-account.account.policy.write",
+    "external-account.account.delete",
+    "external-account.library.read",
+    "external-account.items.read",
+    "external-account.favorites.write"
+  ],
+  "externalAccountAdapters": [
+    {
+      "id": "fabric",
+      "name": "Fabric",
+      "description": "适配 Fabric 使用的不带 /emby 前缀的 Emby 账号管理请求。",
+      "kind": "FABRIC",
+      "basePath": "/",
+      "addressHint": "填入 Fabric 的 Emby 服务器地址，不要追加额外路径。",
+      "configHint": "将接入基地址和密钥分别填入 Fabric 的 Emby 配置。",
+      "routes": [
+        { "method": "GET", "path": "/System/Info", "handler": "system-info" },
+        { "method": "GET", "path": "/System/Info/Public", "handler": "system-info" },
+        { "method": "GET", "path": "/Library/VirtualFolders", "handler": "list-libraries" },
+        { "method": "POST", "path": "/Users/AuthenticateByName", "handler": "authenticate-user" },
+        { "method": "GET", "path": "/Users", "handler": "list-users" },
+        { "method": "GET", "path": "/Users/Public", "handler": "list-users" },
+        { "method": "GET", "path": "/Users/Query", "handler": "query-users" },
+        { "method": "POST", "path": "/Users/New", "handler": "create-user", "timeoutMs": 60000 },
+        { "method": "GET", "path": "/Users/:accountId", "handler": "get-user" },
+        { "method": "POST", "path": "/Users/:accountId/Password", "handler": "set-password" },
+        { "method": "POST", "path": "/Users/:accountId/Policy", "handler": "set-policy" },
+        { "method": "DELETE", "path": "/Users/:accountId", "handler": "delete-user", "timeoutMs": 60000 },
+        { "method": "GET", "path": "/Users/:accountId/Items", "handler": "list-items" },
+        { "method": "GET", "path": "/Users/:accountId/Items/:itemId", "handler": "get-item" },
+        { "method": "POST", "path": "/Users/:accountId/FavoriteItems/:itemId", "handler": "set-favorite" },
+        { "method": "DELETE", "path": "/Users/:accountId/FavoriteItems/:itemId", "handler": "set-favorite" }
+      ]
+    }
+  ]
+}
