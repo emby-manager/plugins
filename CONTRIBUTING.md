@@ -37,3 +37,5 @@ git push -u origin plugin/my-plugin
 - 不修改 SDK、CLI、workflow、catalog、schema、文档或其他仓库级文件。
 
 PR 中的重命名会同时检查新旧路径，不能通过把外部文件移入插件目录绕过门禁。超出边界的 PR 会在 `Single plugin scope` 检查中失败。
+
+唯一例外是受保护的官方签名 Action：只有 `github-actions[bot]` 创建的 `catalog-release/*` PR 可以同时更新 `catalog/index.json` 和 `catalog/signature.json`，且不能修改任何其他文件。

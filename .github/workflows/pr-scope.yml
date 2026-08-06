@@ -18,12 +18,34 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
+          mapfile -t changed_paths < <(
+            gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" \
+              --jq '.[] | .filename, (.previous_filename // empty)'
+          )
+
+          if [[ "$PR_AUTHOR" == "github-actions[bot]" && "$PR_HEAD" == catalog-release/* ]]; then
+            for changed_path in "${changed_paths[@]}"; do
+              [[ "$changed_path" == "catalog/index.json" || "$changed_path" == "catalog/signature.json" ]] || {
+                echo "::error file=$changed_path::The release bot may only update the signed catalog pair."
+                exit 1
+              }
+            done
+            (( ${#changed_paths[@]} > 0 )) || {
+              echo "::error::The catalog release PR does not contain any changed files."
+              exit 1
+            }
+            echo "Accepted signed catalog update from the official release workflow."
+            exit 0
+          fi
+
           declare -A plugin_directories=()
           changed_count=0
 
-          while IFS= read -r changed_path; do
+          for changed_path in "${changed_paths[@]}"; do
             [[ -n "$changed_path" ]] || continue
             changed_count=$((changed_count + 1))
             if [[ "$changed_path" =~ ^plugins/([^/]+)/.+$ ]]; then
@@ -32,10 +54,7 @@ jobs:
               echo "::error file=$changed_path::Plugin PRs may only modify files below one plugins/<plugin>/ directory."
               exit 1
             fi
-          done < <(
-            gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" \
-              --jq '.[] | .filename, (.previous_filename // empty)'
-          )
+          done
 
           if (( changed_count == 0 )); then
             echo "::error::The PR does not contain any changed files."

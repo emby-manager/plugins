@@ -32,7 +32,7 @@ npm run plugin:build -- plugins/my-plugin
 ## 官方信任锚
 
 EM 默认从本仓库的已签名 `catalog/index.json` 获取官方插件，并内置对应的 Ed25519 公钥。签名私钥仅保存在 GitHub `plugin-signing` Environment 的 Secret 中，不会进入 Git 历史。
-只有官方仓库 `main` 分支上手动触发的 `Sign and publish plugin` Action 会被允许使用这把私钥。PR 校验流水线不能读取签名 Secret。
+只有官方仓库 `main` 分支上手动触发的 `Sign and publish plugin` Action 会被允许使用这把私钥。它会通过专用的 `catalog-release/*` PR 更新目录，并等待必需检查后合并；PR 校验流水线不能读取签名 Secret。
 
 - Key ID: `emby-manager-official-2026-01`
 - SHA-256 指纹: `da64af36e0a6bc398196ad59fa210a6c071cadaccc389fbc1e345173d59c8b02`
