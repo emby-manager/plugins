@@ -11,6 +11,8 @@
   "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
   "entrypoints": { "server": "src/server.ts" },
   "capabilities": [
+    "storage.kv.read",
+    "storage.kv.write",
     "external-account.provider.read",
     "external-account.account.read",
     "external-account.account.create",
