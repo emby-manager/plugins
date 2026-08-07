@@ -26,8 +26,21 @@
 | `emby.account.expiry.write` | `emby.updateExpiry` | 仅修改到期时间；必须由管理员 Action 发起并审计 |
 | `emby.connection.self.read` | `emby.listMyConnections` | 仅当前用户可用的服务器名称与连接地址；不返回 API Key、锁定套餐线路或其他用户数据 |
 | `emby.library.read` | `emby.listLibrary` | 只读媒体索引，返回字段由宿主固定 |
+| `session.site.self.read` | `sessions.listMySiteSessions` | 当前用户的 EM 站点登录会话；标记当前会话，只返回设备元数据，不返回 JWT |
+| `session.site.any.read` | `sessions.listSiteSessions` | 指定用户的 EM 站点登录会话；必须由管理员 Action 发起 |
+| `session.site.self.revoke` | `sessions.revokeMySiteSession` | 撤销当前用户的一个 EM 登录会话；与读取权限分离 |
+| `session.site.any.revoke` | `sessions.revokeSiteSession` | 撤销指定用户的一个 EM 登录会话；必须由管理员 Action 发起并审计 |
+| `device.ea.self.read` | `sessions.listMyEADevices` | 当前用户在 EA 上的登录设备；只读 EM 的本地设备快照，不在调用期间请求 EA |
+| `device.ea.any.read` | `sessions.listEADevices` | 指定用户的 EA 登录设备；必须由管理员 Action 发起 |
+| `device.ea.self.revoke` | `sessions.revokeMyEADevice` | 将当前用户的一个 EA 设备撤销并通知 EA 失效该设备 Token |
+| `device.ea.any.revoke` | `sessions.revokeEADevice` | 撤销指定用户的一个 EA 设备；必须由管理员 Action 发起并审计 |
+| `playback.session.self.read` | `sessions.listMyPlaybackSessions` | 当前用户的播放会话镜像；数据来自 EM webhook/宿主轮询，不因插件调用而回源 |
+| `playback.session.any.read` | `sessions.listPlaybackSessions` | 指定用户的播放会话镜像；必须由管理员 Action 发起 |
+| `playback.session.self.stop` | `sessions.stopMyPlaybackSession` | 停止当前用户的一个活跃播放会话；单独高风险控制权限 |
+| `playback.session.any.stop` | `sessions.stopPlaybackSession` | 停止指定用户的一个活跃播放会话；必须由管理员 Action 发起并审计 |
 | `notification.self.send` | `notifications.sendToMe` | 仅当前认证用户 |
 | `notification.any.send` | `notifications.sendToUser` | 指定用户；必须由管理员 Action 发起并审计 |
+| `notification.broadcast.send` | `notifications.sendToAll` | 全部有效站内用户；必须由管理员 Action 发起并审计，插件不能指定或扩展收件人集合 |
 | `network.read` | `network.fetch` 的 GET | 仅 manifest `network.allowedHosts`，带 SSRF/大小/超时限制 |
 | `network.write` | `network.fetch` 的 POST/PUT/PATCH/DELETE | 同上，写请求单独审批 |
 | `scheduler.read` | `scheduler.list` | 仅本插件任务 |
@@ -39,11 +52,29 @@
 | `external-account.account.password.write` | `externalAccounts.setPassword` | 仅当前 Provider 账号，同时撤销旧会话 |
 | `external-account.account.policy.write` | `externalAccounts.setPolicy` | 仅成员安全策略；宿主拒绝管理员、跨用户和内容删除权限 |
 | `external-account.account.delete` | `externalAccounts.deleteAccount` | 仅当前 Provider 账号，保留审计台账 |
-| `external-account.library.read` | `externalAccounts.listLibraries` | 由宿主使用 EA Webhook 密钥代理；插件看不到密钥 |
-| `external-account.items.read` | `externalAccounts.listItems/getItem` | 只允许当前 Provider 所属 EA 用户的媒体项目 |
-| `external-account.favorites.write` | `externalAccounts.setFavorite` | 只允许修改当前 Provider 所属 EA 用户的收藏状态 |
+| `external-account.library.read` | `externalAccounts.listLibraries` | 读取 EM 本地的库配置快照；不返回 EA 路径、地址或密钥，也不请求 EA |
+| `external-account.items.read` | `externalAccounts.listItems/getItem` | 读取 EM 后台维护的本地媒体快照（含跨库多版本成员关系）并按当前 Provider 账号策略过滤；不返回路径或流信息 |
+| `external-account.favorites.write` | `externalAccounts.setFavorite` | 修改 EM 本地模拟的 Provider 账号收藏，不读写 EA UserData |
+| `external-account.provider.manage.read` | `externalAccountsAdmin.getOptions/listProviders` | 管理端读取 Provider 配置摘要；不返回完整 Secret；必须由管理员 Action 发起 |
+| `external-account.provider.manage.create` | `externalAccountsAdmin.createProvider` | 创建一个绑定当前适配器的 Provider；必须由管理员 Action 发起并审计 |
+| `external-account.provider.manage.update` | `externalAccountsAdmin.updateProvider` | 修改 Provider 名称、启用状态或线路套餐；必须由管理员 Action 发起并审计 |
+| `external-account.provider.manage.secret.rotate` | `externalAccountsAdmin.rotateProviderSecret` | 轮换 Provider Secret；新 Secret 只在本次响应出现；必须由管理员 Action 发起 |
+| `external-account.provider.manage.delete` | `externalAccountsAdmin.deleteProvider` | 删除无活动账号的 Provider；必须由管理员 Action 发起并审计 |
+| `external-account.provider.manage.reconcile` | `externalAccountsAdmin.reconcileProvider` | 触发宿主对当前 Provider 的账号生命周期核对；必须由管理员 Action 发起 |
+| `external-account.account.manage.read` | `externalAccountsAdmin.listAccounts` | 管理端读取外部账号台账摘要；必须由管理员 Action 发起 |
+| `external-account.account.manage.reconcile` | `externalAccountsAdmin.reconcileAccount` | 触发宿主核对一个外部账号的隐藏身份、EA 用户和线路状态 |
+| `external-account.account.manage.delete` | `externalAccountsAdmin.deleteAccount` | 删除一个 Provider 账号并保留审计台账；必须由管理员 Action 发起 |
+| `external-account.audit.read` | `externalAccountsAdmin.listAudits` | 读取当前外部账号接入审计；必须由管理员 Action 发起 |
 
 SDK 故意把 `self` 与 `any` 操作拆成不同方法，避免一个可选 `userId` 参数无意间扩大访问范围。插件 Runner 不会获得 Prisma、Express、环境变量、主程序文件、直接网络或 Node 内置模块入口。
+
+设备和会话的三个域也故意分离：
+
+- `session.site.*` 是 EM 网站 JWT 对应的站点登录，会话列表永远不含 Token；
+- `device.ea.*` 是 EA 客户端登录设备，只使用 webhook 已同步到 EM 的设备表；
+- `playback.session.*` 是一次播放的本地镜像，优先以 `PlaySessionId` 区分同一设备连续播放的不同媒体。
+
+所有列表调用都是本地读取。只有调用者另外声明并获批 `revoke` 或 `stop` 时，宿主才会执行相应远端控制；插件本身仍看不到控制凭据。
 
 外部账号适配器还多一重资源绑定：能力调用不接受 `providerId` 参数，宿主只从本次
 API Key/HMAC 已认证请求注入 Provider，并再次核对 `adapterPluginId + adapterId`。
