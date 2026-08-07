@@ -2,16 +2,28 @@
   "schemaVersion": 2,
   "id": "dev.emby-manager.hello-world",
   "name": "Hello World",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "apiVersion": "2",
-  "description": "Plugin System V2 reference implementation.",
+  "description": "通过受控通知能力向当前用户问好，并演示管理员安全广播。",
   "author": "Emby Manager",
   "repository": "https://github.com/emby-manager/plugins",
   "license": "MIT",
   "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
   "entrypoints": { "server": "src/server.ts" },
-  "capabilities": ["storage.kv.read", "storage.kv.write", "user.profile.self.read"],
-  "actions": [{ "name": "greet", "title": "Greet me", "access": "user" }],
-  "pages": [{ "id": "hello", "path": "/plugins/hello", "title": "Hello Plugin", "description": "V2 reference plugin", "location": "user", "schema": "ui/hello.json" }],
+  "capabilities": [
+    "storage.kv.read",
+    "storage.kv.write",
+    "user.profile.self.read",
+    "notification.self.send",
+    "notification.broadcast.send"
+  ],
+  "actions": [
+    { "name": "greet", "title": "向我问好", "access": "user" },
+    { "name": "greet-everyone", "title": "向全部用户问好", "access": "admin" }
+  ],
+  "pages": [
+    { "id": "hello", "path": "/plugins/hello", "title": "Hello Plugin", "description": "给当前登录用户发送一条问候通知", "location": "user", "schema": "ui/hello.json" },
+    { "id": "hello-broadcast", "path": "/admin/plugins/hello-broadcast", "title": "Hello 广播", "description": "管理员向全部有效站内用户发送问候", "location": "admin", "schema": "ui/broadcast.json" }
+  ],
   "defaultConfig": { "greeting": "欢迎使用 EM 插件系统" }
 }
