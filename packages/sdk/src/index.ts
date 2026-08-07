@@ -15,8 +15,21 @@ export const PLUGIN_CAPABILITIES = [
   'emby.account.expiry.write',
   'emby.connection.self.read',
   'emby.library.read',
+  'session.site.self.read',
+  'session.site.any.read',
+  'session.site.self.revoke',
+  'session.site.any.revoke',
+  'device.ea.self.read',
+  'device.ea.any.read',
+  'device.ea.self.revoke',
+  'device.ea.any.revoke',
+  'playback.session.self.read',
+  'playback.session.any.read',
+  'playback.session.self.stop',
+  'playback.session.any.stop',
   'notification.self.send',
   'notification.any.send',
+  'notification.broadcast.send',
   'network.read',
   'network.write',
   'scheduler.read',
@@ -71,6 +84,71 @@ export interface ExternalAccountSnapshot {
   expiresAt: string | null
   policy: Record<string, unknown>
   configuration: Record<string, unknown>
+}
+
+export interface OperationalSessionListOptions {
+  limit?: number
+  serverId?: string
+  includeEnded?: boolean
+}
+
+export interface SiteSessionSnapshot {
+  id: string
+  kind: 'EM_SITE'
+  /** True only for the login session that invoked the current plugin action. */
+  current: boolean
+  createdAt: string
+  lastSeenAt: string
+  expiresAt: string
+  deviceId: string | null
+  deviceName: string | null
+  client: string | null
+  ip: string | null
+  userAgent: string | null
+}
+
+export interface EADeviceSnapshot {
+  id: string
+  kind: 'MEDIA_SERVER'
+  server: { id: string; name: string; serverType: string }
+  accountId: string | null
+  embyUserId: string
+  deviceId: string
+  deviceName: string | null
+  client: string
+  ip: string
+  createdAt: string
+  lastSeenAt: string
+  active: boolean
+  blocked: boolean
+  details: { type: string; applicationVersion: string | null }
+}
+
+export interface PlaybackSessionSnapshot {
+  id: string
+  server: { id: string; name: string; serverType: string }
+  state: 'PLAYING' | 'PAUSED' | 'STOPPED' | 'STALE'
+  item: {
+    id: string
+    name: string
+    type: string | null
+    year: string | null
+    tmdbId: number | null
+    imdbId: string | null
+  }
+  device: {
+    id: string | null
+    name: string | null
+    client: string | null
+    applicationVersion: string | null
+    ip: string | null
+  }
+  positionTicks: string
+  runtimeTicks: string | null
+  startedAt: string
+  lastSeenAt: string
+  endedAt: string | null
+  source: 'WEBHOOK' | 'POLL'
 }
 
 export interface ExternalAccountAdminProvider {
@@ -136,9 +214,24 @@ export interface PluginContext {
     listMyConnections(): Promise<unknown[]>
     listLibrary(options?: { search?: string; limit?: number }): Promise<unknown[]>
   }
+  sessions: {
+    listMySiteSessions(options?: OperationalSessionListOptions): Promise<SiteSessionSnapshot[]>
+    listSiteSessions(userId: number, options?: OperationalSessionListOptions): Promise<SiteSessionSnapshot[]>
+    revokeMySiteSession(sessionId: string): Promise<{ revoked: true; id: string }>
+    revokeSiteSession(userId: number, sessionId: string): Promise<{ revoked: true; id: string }>
+    listMyEADevices(options?: OperationalSessionListOptions): Promise<EADeviceSnapshot[]>
+    listEADevices(userId: number, options?: OperationalSessionListOptions): Promise<EADeviceSnapshot[]>
+    revokeMyEADevice(deviceId: string): Promise<{ revoked: true; id: string }>
+    revokeEADevice(userId: number, deviceId: string): Promise<{ revoked: true; id: string }>
+    listMyPlaybackSessions(options?: OperationalSessionListOptions): Promise<PlaybackSessionSnapshot[]>
+    listPlaybackSessions(userId: number, options?: OperationalSessionListOptions): Promise<PlaybackSessionSnapshot[]>
+    stopMyPlaybackSession(sessionId: string): Promise<{ stopped: true; alreadyStopped: boolean; id: string }>
+    stopPlaybackSession(userId: number, sessionId: string): Promise<{ stopped: true; alreadyStopped: boolean; id: string }>
+  }
   notifications: {
     sendToMe(input: { title: string; message: string }): Promise<{ ok: true }>
     sendToUser(userId: number, input: { title: string; message: string }): Promise<{ ok: true }>
+    sendToAll(input: { title: string; message: string }): Promise<{ ok: true; recipientCount: number }>
   }
   network: { fetch(input: { url: string; method?: string; headers?: Record<string, string>; body?: unknown }): Promise<{ status: number; ok: boolean; headers: Record<string, string>; body: string }> }
   scheduler: {

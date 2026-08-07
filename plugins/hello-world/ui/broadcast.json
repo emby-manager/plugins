@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "title": "Hello 广播",
+  "description": "仅管理员可用。问候会发送给全部有效站内用户。",
+  "sections": [
+    {
+      "id": "broadcast",
+      "columns": 2,
+      "blocks": [
+        { "type": "text", "id": "scope", "title": "宿主控制收件范围", "content": "广播使用独立的 notification.broadcast.send 权限。收件人由 EM 宿主生成，自动排除停用账号和外部托管身份，插件不能自行添加目标。", "tone": "warning" },
+        { "type": "action", "id": "greet-everyone", "title": "向全部用户问好", "description": "向全部有效站内用户发送一条问候通知。", "action": "greet-everyone", "confirm": "确定向全部有效站内用户发送问候吗？" }
+      ]
+    }
+  ]
+}
