@@ -1,14 +1,14 @@
 {
   "version": 1,
   "title": "Hello Plugin",
-  "description": "这是声明式 UI、隔离运行器与能力审批的参考实现。",
+  "description": "点击后，插件会通过受控通知能力给当前登录账号发送一条问候。",
   "sections": [
     {
       "id": "overview",
       "columns": 2,
       "blocks": [
-        { "type": "text", "id": "security", "title": "隔离运行", "content": "插件无法读取 EM 源码、Prisma、环境变量或站点 Token。", "tone": "success" },
-        { "type": "action", "id": "greet", "title": "向我问好", "description": "调用经过认证的插件 Action。", "action": "greet" }
+        { "type": "text", "id": "security", "title": "只发送给你", "content": "普通用户调用时，收件人由宿主锁定为当前账号。插件不能传入其他用户 ID，也不能越权改成广播。", "tone": "success" },
+        { "type": "action", "id": "greet", "title": "向我问好", "description": "通过 notification.self.send 给当前账号发送站内通知。", "action": "greet" }
       ]
     }
   ]
