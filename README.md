@@ -1,43 +1,171 @@
 # Emby Manager Plugins
 
-这是 Emby Manager Plugin System V2 的官方插件合集、公开 SDK、构建工具和模板仓库。
+这里是 Emby Manager Plugin System V2 的官方插件合集，也是第三方插件开发所需的 SDK、CLI、Schema、模板和公开规范仓库。
 
-插件不会导入 EM 内部源码。后端插件运行在独立 Runner 中，只能通过经管理员批准的能力接口访问宿主；前端优先使用由 EM 渲染的声明式 UI Schema。
+插件与 EM 核心代码完全解耦。服务端代码运行在独立 Runner 中，不能导入 EM 源码、Prisma、Express、Node 内置模块或环境变量；需要数据、通知、网络、调度、登录设备或播放会话时，只能调用经过声明、签名上限约束和管理员逐项批准的宿主能力。插件页面使用声明式 JSON，由 EM 自己渲染，因此会自动继承站点主题、移动端布局和交互样式。
 
-## 创建插件
+## 快速开始
+
+需要 Node.js 24.10.0 和 npm。第一次开发建议从模板复制一个新目录：
 
 ```bash
-npm install
-npm run build
+git clone --branch develop-from-here --single-branch https://github.com/emby-manager/plugins.git
+cd plugins
+npm ci
 cp -R templates/basic plugins/my-plugin
-npm run plugin:build -- plugins/my-plugin
 ```
 
-不想拉取整个插件合集时，可以从长期维护的 `develop-from-here` 分支做 partial clone + sparse checkout。具体命令与“单个 PR 只能修改一个插件目录”的门禁规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+然后至少修改以下内容：
 
-构建结果是 `.emp` 文件。EM 不会在服务器上安装 npm 依赖或编译 TypeScript，因此必须在提交或导入前完成本地构建。
+- `plugins/my-plugin/plugin.json`：唯一 ID、名称、版本、作者、能力、Action 和页面。
+- `plugins/my-plugin/src/server.ts`：服务端 Action 或 Event 实现。
+- `plugins/my-plugin/ui/*.json`：由 EM 渲染的页面。
+- `plugins/my-plugin/README.md`：用途、配置、权限理由、使用方式和限制。
 
-如需周期任务，读取状态申请 `scheduler.read`，创建、修改或删除任务申请 `scheduler.write`；同时声明 `schedule.<任务名>` 事件，再通过 `ctx.scheduler.upsert()` 注册。插件不能直接导入 Node 模块或自行联网；文件、网络、用户、媒体、通知、Secret 与调度都必须走 SDK 能力接口。
+验证并构建：
 
-权限遵循“清单先声明、密钥能力上限、管理员逐项批准、调用时再校验”。数据库中即使残留旧授权，只要当前 `plugin.json` 没有声明，对应调用仍会被拒绝。当前用户与任意用户、网络读取与写入、调度读取与写入均为不同能力，不会自动扩大授权范围。
+```bash
+npm run typecheck
+npm run plugin:build -- plugins/my-plugin
+npm run plugin:verify -- dist/<plugin-id>-<version>.emp
+npm test
+```
 
-用户页面路径固定在 `/plugins/<slug>`，管理员页面固定在 `/admin/plugins/<slug>`。这可以避免插件覆盖 EM 的核心路由；启用插件时，宿主还会拒绝与其他插件冲突的页面路径。
+生成的 `.emp` 可以由站点管理员本地导入。EM 不会在服务器上替插件安装依赖或编译 TypeScript，所以包必须在提交或分发前完成构建。
+
+不想完整检出插件合集，可以使用 partial clone 和 sparse checkout，见 [贡献指南](CONTRIBUTING.md)。
+
+## 一个最小插件
+
+`plugin.json` 只申请真正会调用的能力：
+
+```json
+{
+  "schemaVersion": 2,
+  "id": "dev.example.my-plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "apiVersion": "2",
+  "description": "A safe Emby Manager V2 plugin.",
+  "author": "Your name",
+  "license": "MIT",
+  "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
+  "entrypoints": { "server": "src/server.ts" },
+  "capabilities": ["user.profile.self.read"],
+  "actions": [{ "name": "hello", "title": "Say hello", "access": "user" }],
+  "pages": [{
+    "id": "dashboard",
+    "path": "/plugins/my-plugin",
+    "title": "My Plugin",
+    "location": "user",
+    "schema": "ui/dashboard.json"
+  }]
+}
+```
+
+服务端通过 SDK 上下文调用宿主，不直接访问数据库：
+
+```ts
+import { definePlugin } from '@emby-manager/plugin-sdk'
+
+export default definePlugin({
+  actions: {
+    async hello(_input, ctx) {
+      const profile = await ctx.users.getMyProfile()
+      return { message: `Hello, ${String((profile as any).userName || 'friend')}` }
+    },
+  },
+})
+```
+
+完整起点在 [`templates/basic`](templates/basic)，可运行示例在 [`plugins/hello-world`](plugins/hello-world)，用户线路示例在 [`plugins/quick-import`](plugins/quick-import)。
+
+## 权限模型
+
+每次能力调用必须同时满足：
+
+1. 当前包的 `plugin.json` 明确声明精确能力；
+2. 发布者公钥允许签发该能力，未签名包还受更低的固定上限约束；
+3. 站点管理员已对当前插件版本逐项批准；
+4. Broker 在每次调用时再次核对用户、管理员身份、Provider 和资源范围。
+
+未声明能力绝不会因为旧授权、管理员身份或兼容逻辑而生效。`self` 与 `any`、读取与写入、列出与撤销、读取播放会话与停止播放均是不同能力。
+
+例如，读取当前用户的三个会话域需要分别声明：
+
+```json
+{
+  "capabilities": [
+    "session.site.self.read",
+    "device.ea.self.read",
+    "playback.session.self.read"
+  ]
+}
+```
+
+```ts
+const siteLogins = await ctx.sessions.listMySiteSessions()
+const eaDevices = await ctx.sessions.listMyEADevices()
+const playing = await ctx.sessions.listMyPlaybackSessions()
+```
+
+这些读取只返回 EM 维护的本地快照；站点会话会用 `current` 标识发起当前 Action 的登录设备，但不返回 JWT、EA Webhook Key、Emby API Key、媒体路径或流地址，也不会因为插件调用而临时请求 EA。撤销登录设备或停止播放必须额外申请对应的 `*.revoke` / `*.stop` 能力；`any` 版本还要求管理员 Action 上下文。
+
+所有能力及其限制见 [能力清单](docs/capabilities.md)，威胁模型见 [安全模型](docs/security.md)。
+
+## 仓库结构
+
+| 路径 | 内容 |
+| --- | --- |
+| `plugins/` | 官方与社区插件源码；每个目录是一个独立插件 |
+| `templates/basic/` | 新插件模板 |
+| `packages/sdk/` | 插件可见的类型和 `definePlugin` API |
+| `packages/cli/` | manifest 校验、打包、摘要和签名验证工具 |
+| `schemas/plugin.schema.json` | Plugin V2 manifest 的机器可读 Schema |
+| `docs/` | 能力和安全规范 |
+| `catalog/` | 官方签名目录与吊销清单 |
+| `keys/` | 可公开核对的官方公钥 |
+| `dist/` | 本地或 CI 构建的 `.emp` 包 |
+
+## 页面、配置与后台功能
+
+- 用户页面只能使用 `/plugins/<slug>`，管理员页面只能使用 `/admin/plugins/<slug>`。
+- 页面只能调用 manifest 中已经声明的 Action，不能执行任意 HTML、React 或浏览器脚本。
+- 配置使用受限 JSON Schema，不支持会在宿主进程执行正则或加载外部引用的关键字。
+- 插件自己的后台管理页、配置和业务逻辑也应放在插件目录中；不要向 EM 核心添加插件专用页面或数据库表。
+- 每个插件拥有物理隔离的 SQLite 数据库。普通数据使用 `ctx.storage`，敏感配置使用 `ctx.secrets`，不得依赖 EM 主库结构。
 
 ## 发布方式
 
-- 给本仓库提交 PR：CI 校验、构建、扫描后由官方发布流水线签名。
-- 自行发布：使用自己的 Ed25519 密钥签名，站点管理员导入并核对发布者公钥。
-- 本地开发：可以构建未签名包，但 EM 只允许低风险能力，并且默认停用。
+### 提交到官方合集
+
+从 `develop-from-here` 创建分支，一个 PR 只能修改一个 `plugins/<plugin>/` 目录。CI 会检查 PR 边界、类型、Schema、可复现构建、包内容、测试和依赖风险。合并后，只有受保护的官方 GitHub Action 能读取签名 Secret 并发布目录条目。
+
+详细流程、目录约束和审核标准见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+### 自行分发
+
+开发者也可以用自己的 Ed25519 密钥签名 `.emp`。站点管理员需要先核对并导入发布者公钥，再逐项批准能力。第三方发布者不能声明自己是官方发布者，也不能获得超过其公钥上限的权限。
+
+### 本地开发
+
+未签名包可用于本地调试，但默认停用，且只能申请固定的低风险能力集合。需要设备、通知、网络、调度、外部账号或播放控制的插件，应使用可核验的第三方签名，或向官方合集提交 PR。
 
 ## 官方信任锚
 
-EM 默认从本仓库的已签名 `catalog/index.json` 获取官方插件，并内置对应的 Ed25519 公钥。签名私钥仅保存在 GitHub `plugin-signing` Environment 的 Secret 中，不会进入 Git 历史。
-只有官方仓库 `main` 分支上手动触发的 `Sign and publish plugin` Action 会被允许使用这把私钥。它会先在临时分支上校验插件包、目录签名和暂存文件边界，然后将同一个已通过必需状态检查的提交快进到 `main`；PR 校验流水线不能读取签名 Secret。
+EM 默认信任本仓库目录使用的 Ed25519 公钥；官方发布者不可由后台替换或吊销。私钥只存在于 GitHub `plugin-signing` Environment 中，PR、普通 CI、仓库文件和 EM 实例都无法读取。
 
-- Key ID: `emby-manager-official-2026-01`
-- SHA-256 指纹: `da64af36e0a6bc398196ad59fa210a6c071cadaccc389fbc1e345173d59c8b02`
-- 公钥: [`keys/emby-manager-official-2026-01.pub.pem`](keys/emby-manager-official-2026-01.pub.pem)
+- Key ID：`emby-manager-official-2026-01`
+- SHA-256 指纹：`da64af36e0a6bc398196ad59fa210a6c071cadaccc389fbc1e345173d59c8b02`
+- 公钥：[`keys/emby-manager-official-2026-01.pub.pem`](keys/emby-manager-official-2026-01.pub.pem)
 
-管理员仍需要对插件申请的每项能力单独审批；官方签名只确认包的来源和完整性，不会自动授权。
+官方签名只确认来源和完整性，不代表自动授权；管理员仍然要对每个插件版本逐项批准能力。
 
-详细规范见 [能力清单](docs/capabilities.md)、[安全模型](docs/security.md) 与 [Manifest Schema](schemas/plugin.schema.json)。
+## 参与前请阅读
+
+- [贡献指南](CONTRIBUTING.md)
+- [能力清单](docs/capabilities.md)
+- [安全模型](docs/security.md)
+- [Manifest Schema](schemas/plugin.schema.json)
+
+如果发现能绕过能力声明、签名校验、Runner 隔离、Provider 绑定或数据隔离的安全问题，请不要提交公开利用代码；先通过 GitHub Security Advisory 私下报告。
