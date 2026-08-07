@@ -151,6 +151,11 @@ const playing = await ctx.sessions.listMyPlaybackSessions()
 
 未签名包可用于本地调试，但默认停用，且只能申请固定的低风险能力集合。需要设备、通知、网络、调度、外部账号或播放控制的插件，应使用可核验的第三方签名，或向官方合集提交 PR。
 
+外部账号适配器同样是开放的插件能力，不是 EmbyBoss 或 Fabric 专属。声明
+`externalAccountAdapters` 后，插件卡片会按清单中的名称自动显示“外部账号”标签；
+`kind` 是插件自定义的受约束标识，EM 不维护品牌白名单。适配器仍须提供真实的
+有界路由和服务端处理器，并逐项申请账号生命周期能力，空声明不会获得接入权限。
+
 ## 官方信任锚
 
 EM 默认信任本仓库目录使用的 Ed25519 公钥；官方发布者不可由后台替换或吊销。私钥只存在于 GitHub `plugin-signing` Environment 中，PR、普通 CI、仓库文件和 EM 实例都无法读取。
