@@ -128,7 +128,11 @@
           "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
           "name": { "type": "string", "minLength": 1, "maxLength": 120 },
           "description": { "type": "string", "maxLength": 500 },
-          "kind": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,23}$" },
+          "kind": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,23}$",
+            "description": "Plugin-owned opaque adapter type. EM validates syntax only and has no provider-brand allowlist."
+          },
           "basePath": { "type": "string", "pattern": "^/(?:[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)?$", "maxLength": 180 },
           "addressHint": { "type": "string", "maxLength": 500 },
           "configHint": { "type": "string", "maxLength": 500 },
