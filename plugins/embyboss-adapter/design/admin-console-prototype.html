@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EmbyBoss 接入总览 · 离线评审原型</title>
+    <style>
+      :root {
+        --ink: #14213d;
+        --muted: #71809b;
+        --line: #e8edf5;
+        --canvas: #f7f9fc;
+        --surface: #fff;
+        --blue: #1478f2;
+        --blue-soft: #eaf3ff;
+        --green: #16875a;
+        --green-soft: #e9f8f0;
+        --amber: #aa6a04;
+        --amber-soft: #fff6df;
+        --purple: #7358c7;
+        --purple-soft: #f1edff;
+        --shadow: 0 8px 24px rgb(23 43 77 / 4%);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--canvas); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      button, input, select { font: inherit; }
+      button { cursor: pointer; }
+      button:disabled { cursor: not-allowed; opacity: .55; }
+      .app { min-height: 100vh; display: flex; }
+      .sidebar { width: 238px; flex: 0 0 238px; display: flex; flex-direction: column; padding: 24px 14px 16px; background: #fbfcfe; border-right: 1px solid var(--line); }
+      .brand { display: flex; align-items: center; gap: 11px; padding: 0 12px 24px; }
+      .brand-mark { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 10px; background: linear-gradient(135deg, #167ff2, #56a7ff); color: #fff; font-size: 12px; font-weight: 800; }
+      .brand strong, .brand small { display: block; }
+      .brand strong { font-size: 15px; }
+      .brand small { margin-top: 3px; color: #9ba7bb; font-size: 10px; }
+      .workspace { display: flex; align-items: center; gap: 9px; margin: 0 4px 26px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 2px 6px rgb(23 43 77 / 2%); }
+      .avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: #dcecff; color: var(--blue); font-size: 11px; font-weight: 800; }
+      .workspace b, .workspace small { display: block; }
+      .workspace b { font-size: 11px; }
+      .workspace small { margin-top: 3px; color: #93a0b5; font-size: 10px; }
+      .workspace .chevron { margin-left: auto; color: #a5b0c2; }
+      .nav-label { margin: 0 13px 9px; color: #a4afc2; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+      .nav { flex: 1; }
+      .nav button { width: 100%; display: flex; align-items: center; gap: 11px; margin-bottom: 3px; padding: 10px 12px; border: 0; border-radius: 9px; background: transparent; color: #6d7b95; text-align: left; font-size: 12px; }
+      .nav button:hover { background: #f0f5fb; color: var(--ink); }
+      .nav button.active { background: var(--blue-soft); color: var(--blue); font-weight: 700; }
+      .nav-icon { width: 18px; text-align: center; font-size: 15px; }
+      .nav-count { min-width: 21px; height: 20px; display: grid; place-items: center; margin-left: auto; border-radius: 9px; background: #fff; color: var(--blue); font-size: 10px; }
+      .sidebar-footer { display: flex; align-items: center; gap: 7px; padding: 15px 12px 0; border-top: 1px solid var(--line); color: #8794a9; font-size: 11px; }
+      .led { width: 7px; height: 7px; border-radius: 50%; background: #2fb87c; box-shadow: 0 0 0 3px #e4f7ed; }
+      .sidebar-footer span:last-child { margin-left: auto; color: #9aa6ba; font-size: 16px; }
+      .main { min-width: 0; flex: 1; }
+      .topbar { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 42px; background: rgb(255 255 255 / 86%); border-bottom: 1px solid var(--line); }
+      .breadcrumbs { display: flex; align-items: center; gap: 9px; color: #9aa7bb; font-size: 12px; }
+      .breadcrumbs strong { color: var(--ink); }
+      .breadcrumbs b { color: #c5ccd8; font-weight: 400; }
+      .top-actions { display: flex; align-items: center; gap: 15px; }
+      .icon-button { padding: 5px; border: 0; background: transparent; color: #71809a; font-size: 21px; line-height: 1; }
+      .user { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #71809a; font-size: 11px; }
+      .user .avatar { width: 28px; height: 28px; border-radius: 50%; }
+      .content { max-width: 1220px; margin: 0 auto; padding: 36px 42px 64px; }
+      .notice { display: flex; align-items: center; gap: 9px; margin-bottom: 20px; padding: 10px 13px; border: 1px solid #dbe9ff; border-radius: 9px; background: #f5f9ff; color: #567096; font-size: 11px; }
+      .notice b { color: var(--blue); }
+      .heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+      .eyebrow { margin-bottom: 8px; color: var(--blue); font-size: 11px; font-weight: 700; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: 27px; letter-spacing: -.045em; line-height: 1.1; }
+      .heading p { margin-top: 9px; color: var(--muted); font-size: 12px; }
+      .heading-actions { display: flex; flex-shrink: 0; gap: 9px; }
+      .button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 15px; border: 1px solid transparent; border-radius: 8px; font-size: 12px; font-weight: 700; }
+      .button.primary { background: var(--blue); color: #fff; box-shadow: 0 5px 12px rgb(20 120 242 / 15%); }
+      .button.primary:hover { background: #0566dc; }
+      .button.secondary { border-color: #dfe6f0; background: #fff; color: #52617a; }
+      .button.secondary:hover { border-color: #b7c9e4; color: var(--blue); }
+      .view-tabs { display: inline-flex; gap: 3px; margin-bottom: 22px; padding: 4px; border-radius: 9px; background: #edf2f8; }
+      .view-tabs button { padding: 8px 15px; border: 0; border-radius: 7px; background: transparent; color: #7c899f; font-size: 11px; }
+      .view-tabs button.active { background: #fff; color: var(--ink); box-shadow: 0 2px 6px rgb(51 76 107 / 7%); font-weight: 700; }
+      .view-tabs em { color: #9ca9ba; font-size: 10px; font-style: normal; }
+      .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 24px; }
+      .card, .provider-hero, .data-card, .form-card, .help-card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+      .metric { padding: 18px 20px; }
+      .metric-top { display: flex; align-items: center; justify-content: space-between; color: #8491a7; font-size: 11px; }
+      .metric strong { display: block; margin-top: 14px; font-size: 28px; letter-spacing: -.05em; }
+      .metric small { display: block; margin-top: 9px; color: #9aa6b8; font-size: 10px; }
+      .metric-icon, .card-icon, .action-icon { display: grid; place-items: center; border-radius: 8px; font-weight: 800; }
+      .metric-icon { width: 27px; height: 27px; font-size: 14px; }
+      .blue { color: var(--blue); background: var(--blue-soft); }
+      .green { color: var(--green); background: var(--green-soft); }
+      .amber { color: var(--amber); background: var(--amber-soft); }
+      .purple { color: var(--purple); background: var(--purple-soft); }
+      .positive { color: var(--green); font-weight: 700; }
+      .warning { color: var(--amber) !important; font-weight: 700; }
+      .muted { color: #a3adbb !important; }
+      .section { padding: 21px 22px 8px; }
+      .section-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
+      .section-title h2, .action-card h2, .help-card h2 { font-size: 14px; letter-spacing: -.025em; }
+      .section-title p, .action-card p { margin-top: 6px; color: var(--muted); font-size: 11px; }
+      .link-button { padding: 4px; border: 0; background: transparent; color: var(--blue); font-size: 11px; font-weight: 700; }
+      .provider-row { min-height: 74px; display: flex; align-items: center; gap: 15px; border-top: 1px solid #eff2f6; }
+      .provider-symbol { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 10px; background: linear-gradient(145deg, #eef5ff, #d8e8ff); color: #246bc4; font-size: 14px; font-weight: 800; }
+      .provider-symbol.large { width: 48px; height: 48px; flex-basis: 48px; font-size: 17px; }
+      .provider-main { min-width: 190px; flex: 1; }
+      .provider-name { display: flex; align-items: center; gap: 9px; }
+      .provider-name strong { font-size: 12px; }
+      .provider-main > span { display: block; overflow: hidden; margin-top: 7px; color: #8b98ad; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+      .provider-main i, .provider-hero i { margin: 0 3px; color: #c2c9d4; font-style: normal; }
+      .status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 20px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+      .status.online { background: var(--green-soft); color: var(--green); }
+      .status.offline { background: #eef1f5; color: #7d889a; }
+      .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+      .provider-stat { width: 62px; }
+      .provider-stat small { display: block; color: #9aa6b8; font-size: 10px; }
+      .provider-stat strong { display: block; margin-top: 5px; font-size: 14px; }
+      .row-button { padding: 7px 10px; border: 1px solid #dbe6f4; border-radius: 7px; background: #fff; color: var(--blue); font-size: 10px; font-weight: 700; }
+      .row-button span { margin-left: 6px; }
+      .lower { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+      .info { display: flex; gap: 12px; padding: 17px 18px; border: 1px solid var(--line); border-radius: 12px; background: #fafdff; }
+      .card-icon { width: 30px; height: 30px; flex: 0 0 30px; font-size: 14px; }
+      .info h3 { font-size: 11px; }
+      .info p { margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+      .form-card { max-width: 760px; padding: 29px; }
+      .form-intro { display: flex; gap: 13px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+      .large-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: var(--blue-soft); color: var(--blue); font-size: 22px; }
+      .form-intro h2 { font-size: 16px; }
+      .form-intro p { margin-top: 6px; color: var(--muted); font-size: 11px; }
+      label { display: block; margin-top: 18px; color: #53627b; font-size: 11px; font-weight: 700; }
+      input, select { width: 100%; margin-top: 8px; padding: 11px 12px; border: 1px solid #dfe6ef; border-radius: 8px; outline: 0; background: #fff; color: var(--ink); font-size: 12px; }
+      input:focus, select:focus { border-color: #70aaf8; box-shadow: 0 0 0 3px rgb(20 120 242 / 8%); }
+      .form-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 25px; }
+      .secret { padding: 15px; border: 1px solid #f4deb0; border-radius: 10px; background: #fffbf1; }
+      .secret-title { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+      .badge { padding: 4px 6px; border-radius: 5px; background: #ffe5a4; color: #95610a; font-size: 9px; font-weight: 800; }
+      .secret code { display: block; overflow-wrap: anywhere; margin: 13px 0 8px; padding: 12px; border: 1px dashed #e6c77f; border-radius: 7px; background: #fff; color: #67460c; font-size: 11px; }
+      .secret p { margin-bottom: 11px; color: #9b7a38; font-size: 10px; }
+      .provider-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; padding: 20px 23px; }
+      .provider-hero-left { min-width: 0; display: flex; align-items: center; gap: 13px; }
+      .provider-hero h2 { font-size: 17px; }
+      .provider-hero p { overflow: hidden; max-width: 690px; margin-top: 7px; color: #8a97ac; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+      .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+      .action-card { padding: 21px 22px; }
+      .action-card .section-title { margin-bottom: 7px; }
+      .action-row, .maintenance-row { width: 100%; display: flex; align-items: center; gap: 11px; padding: 14px 0; border: 0; border-top: 1px solid #eef2f6; background: transparent; color: var(--ink); text-align: left; }
+      .action-row:first-of-type, .maintenance-row:first-of-type { border-top: 0; }
+      .action-icon { width: 31px; height: 31px; flex: 0 0 31px; font-size: 13px; }
+      .action-row span:nth-child(2), .maintenance-row span:nth-child(2) { flex: 1; }
+      .action-row strong, .maintenance-row strong { display: block; font-size: 11px; }
+      .action-row small, .maintenance-row small { display: block; margin-top: 4px; color: #8b98ad; font-size: 10px; }
+      .arrow { color: #a5b0c1; font-size: 14px; }
+      .small-label { padding: 4px 7px; border-radius: 5px; background: #f0f3f7; color: #8b98ad; font-size: 9px; }
+      .secret-inline { margin-top: 5px; padding: 9px; border-radius: 8px; background: #fffbf1; }
+      .secret-inline code { display: block; overflow-wrap: anywhere; margin: 8px 0; padding: 8px; border: 1px dashed #e6c77f; border-radius: 7px; background: #fff; color: #67460c; font-size: 10px; }
+      .text-button { padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 10px; font-weight: 700; }
+      .progress-track { height: 6px; overflow: hidden; margin-top: 7px; border-radius: 8px; background: #edf1f6; }
+      .progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--blue); transition: width .25s ease; }
+      .completed { margin-top: 7px; padding: 8px 9px; border-radius: 6px; background: var(--green-soft); color: var(--green); font-size: 10px; }
+      .quick-links { margin-top: 15px; padding: 19px 22px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+      .quick-links h2 { margin-bottom: 11px; font-size: 14px; }
+      .quick-links button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 0; border: 0; border-top: 1px solid #eef2f6; background: transparent; text-align: left; }
+      .quick-links button > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: var(--blue-soft); color: var(--blue); }
+      .quick-links button div { flex: 1; }
+      .quick-links strong, .quick-links small { display: block; }
+      .quick-links strong { font-size: 11px; }
+      .quick-links small { margin-top: 4px; color: #8b98ad; font-size: 10px; }
+      .data-card { padding: 20px 21px; }
+      .filters { display: grid; grid-template-columns: minmax(220px, 1fr) 160px 140px auto; gap: 8px; align-items: center; padding-bottom: 19px; border-bottom: 1px solid var(--line); }
+      .search { display: flex; align-items: center; padding: 0 10px; border: 1px solid #dfe6ef; border-radius: 8px; background: #fff; color: #97a4b8; }
+      .search input { margin: 0; padding: 10px 7px; border: 0; box-shadow: none; }
+      .filters select { margin: 0; }
+      .table-caption { display: flex; justify-content: space-between; padding: 18px 0 12px; }
+      .table-caption strong { font-size: 13px; }
+      .table-caption span { color: #8d99ad; font-size: 10px; }
+      .table { overflow-x: auto; }
+      .table-head, .table-row { min-width: 720px; display: grid; grid-template-columns: 1.25fr 1.25fr 1fr 1.4fr 1.4fr; gap: 12px; align-items: center; padding: 12px 10px; font-size: 10px; }
+      .audit-table .table-head, .audit-table .table-row { min-width: 800px; grid-template-columns: .8fr 1.3fr 1.2fr 1.7fr .9fr 1.5fr; }
+      .table-head { border-radius: 7px; background: #f8fafc; color: #95a1b3; }
+      .table-row { min-height: 49px; border-bottom: 1px solid #f0f2f6; color: #66748c; }
+      .table-row strong, .table-row code { color: var(--ink); font-size: 10px; }
+      .state { display: inline-block; padding: 4px 6px; border-radius: 5px; font-size: 9px; }
+      .state.active { background: var(--green-soft); color: var(--green); }
+      .state.pending { background: var(--amber-soft); color: var(--amber); }
+      .pagination { display: flex; align-items: center; justify-content: space-between; padding-top: 15px; color: #9aa6b8; font-size: 10px; }
+      .pagination button { width: 29px; height: 27px; margin-left: 5px; border: 1px solid #e1e7ef; border-radius: 6px; background: #fff; color: var(--blue); }
+      .help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+      .help-card { min-height: 188px; padding: 24px; }
+      .help-card.full { grid-column: 1 / -1; min-height: 0; }
+      .help-number { color: #a6b2c4; font-size: 10px; letter-spacing: .12em; }
+      .help-card h2 { margin-top: 17px; font-size: 15px; }
+      .help-card p, .help-card small { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+      .help-card code { padding: 2px 4px; border-radius: 4px; background: var(--blue-soft); color: var(--blue); }
+      .copy-block { overflow-wrap: anywhere; margin-top: 18px; padding: 12px; border-radius: 7px; background: #f8fafc; color: #65748d; font-family: monospace; font-size: 10px; }
+      .secure-note { display: flex; gap: 9px; margin-top: 20px; padding: 12px; border-radius: 8px; background: var(--purple-soft); color: #7a6a9f; font-size: 10px; line-height: 1.7; }
+      .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 19px; }
+      .legend > div { padding: 12px; border-radius: 8px; background: #f8fafc; }
+      .legend p { margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+      .toast { position: fixed; right: 25px; bottom: 25px; z-index: 2; display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-radius: 9px; background: #17233a; box-shadow: 0 12px 25px rgb(23 35 58 / 20%); color: #fff; font-size: 11px; }
+      .toast b { color: #6fe0a7; }
+      @media (max-width: 980px) {
+        .sidebar { width: 205px; flex-basis: 205px; }
+        .topbar, .content { padding-right: 26px; padding-left: 26px; }
+        .provider-stat { display: none; }
+        .provider-hero p { max-width: 450px; }
+      }
+      @media (max-width: 760px) {
+        .sidebar { width: 62px; flex-basis: 62px; padding: 18px 8px; }
+        .brand { padding: 0 5px 22px; }
+        .brand > div:last-child, .workspace > span:not(.avatar), .nav-label, .nav button span:not(.nav-icon), .sidebar-footer span:not(.led) { display: none; }
+        .workspace { justify-content: center; margin: 0 0 22px; padding: 5px; border: 0; }
+        .nav button { justify-content: center; padding: 11px 5px; }
+        .nav-count { position: absolute; display: grid !important; min-width: 16px; height: 16px; margin: -22px 0 0 22px; font-size: 8px; }
+        .sidebar-footer { justify-content: center; padding: 0; border: 0; }
+        .topbar { min-height: 58px; padding: 0 16px; }
+        .breadcrumbs span:first-child, .breadcrumbs b:first-of-type { display: none; }
+        .content { padding: 27px 16px 45px; }
+        .heading { align-items: flex-start; flex-direction: column; }
+        .heading-actions { width: 100%; }
+        .heading-actions .button { flex: 1; }
+        .metrics, .lower, .two-column, .help-grid { grid-template-columns: 1fr; }
+        .help-card.full { grid-column: auto; }
+        .legend { grid-template-columns: 1fr; }
+        .provider-row { gap: 9px; }
+        .provider-main { min-width: 0; }
+        .row-button { padding: 7px; }
+        .filters { grid-template-columns: 1fr 1fr; }
+        .filters .search, .filters .button { grid-column: 1 / -1; }
+        .provider-hero { align-items: flex-start; flex-direction: column; }
+        .provider-hero p { max-width: 100%; white-space: normal; line-height: 1.6; }
+        .form-card { padding: 21px; }
+        .toast { right: 14px; bottom: 14px; left: 14px; justify-content: center; }
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Review-only offline prototype. This file intentionally has no external
+      assets, network requests, production URLs, or real credentials.
+    -->
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand"><div class="brand-mark">EM</div><div><strong>管理控制台</strong><small>Emby Manager</small></div></div>
+        <div class="workspace"><span class="avatar">CI</span><span><b>演示工作区</b><small>管理员工作区</small></span><span class="chevron">⌄</span></div>
+        <nav class="nav" aria-label="原型导航">
+          <p class="nav-label">EmbyBoss</p>
+          <button data-view="overview"><span class="nav-icon">⌂</span><span>接入总览</span><span class="nav-count">3</span></button>
+          <button data-view="accounts"><span class="nav-icon">♙</span><span>账号管理</span></button>
+          <button data-view="audits"><span class="nav-icon">◷</span><span>审计记录</span></button>
+          <button data-view="help"><span class="nav-icon">?</span><span>配置说明</span></button>
+        </nav>
+        <div class="sidebar-footer"><span class="led"></span><span>宿主运行正常</span><span>⚙</span></div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>管理控制台</span><b>/</b><span>EmbyBoss</span><b>/</b><strong id="breadcrumb">接入总览</strong></div>
+          <div class="top-actions"><button class="icon-button" data-action="refresh" aria-label="刷新模拟数据">↻</button><button class="user"><span class="avatar">CI</span><span>演示工作区</span><span>⌄</span></button></div>
+        </header>
+        <div class="content">
+          <div class="notice"><b>离线评审原型</b><span>数据为模拟值；本文件不连接生产、不读取真实账号，也不会保存密钥。</span></div>
+          <div id="page"></div>
+        </div>
+      </main>
+      <div id="toast" class="toast" hidden><b>✓</b><span></span></div>
+    </div>
+    <script>
+      (() => {
+        const providers = [
+          { id: "provider-a", name: "演示接入 A", ea: "演示 EA A", latency: "3ms", enabled: true, accounts: 12, pending: 1, route: "服务器默认", path: "/api/external/emby/embyboss-demo-a" },
+          { id: "provider-b", name: "演示接入 B", ea: "演示 EA B", latency: "2ms", enabled: true, accounts: 7, pending: 0, route: "服务器默认", path: "/api/external/emby/embyboss-demo-b" },
+          { id: "provider-c", name: "演示接入 C", ea: "演示 EA C", latency: "1ms", enabled: true, accounts: 5, pending: 1, route: "服务器默认", path: "/api/external/emby/embyboss-demo-c" }
+        ];
+        const accounts = [
+          ["demo-user-01", "演示接入 A", "ACTIVE", "演示时间", "—"],
+          ["demo-user-02", "演示接入 A", "ACTIVE", "演示时间", "—"],
+          ["demo-user-03", "演示接入 B", "ACTIVE", "演示时间", "—"],
+          ["demo-user-04", "演示接入 B", "PENDING", "演示时间", "等待线路授权"],
+          ["demo-user-05", "演示接入 C", "ACTIVE", "演示时间", "—"]
+        ];
+        const audits = [
+          ["演示时间", "演示接入 A", "—", "adapter.set-policy", "success", "example-ip"],
+          ["演示时间", "演示接入 B", "demo-user-03", "adapter.set-password", "success", "example-ip"],
+          ["演示时间", "演示接入 A", "demo-user-01", "account.provision", "success", "—"],
+          ["演示时间", "演示接入 B", "demo-user-03", "adapter.create-user", "success", "example-ip"],
+          ["演示时间", "演示接入 C", "demo-user-05", "account.policy", "partial", "—"]
+        ];
+        const state = { view: "overview", selected: "provider-a", secret: "", newName: "", reconcile: { running: false, progress: 0, checked: 0, repaired: 0, failed: 0 } };
+        const page = document.getElementById("page");
+        const toast = document.getElementById("toast");
+        let toastTimer;
+
+        const esc = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+        const number = (value) => new Intl.NumberFormat("zh-CN").format(value);
+        const selected = () => providers.find((provider) => provider.id === state.selected) || providers[0];
+        const status = (provider) => `<span class="status ${provider.enabled ? "online" : "offline"}"><span class="status-dot"></span>${provider.enabled ? `在线 · ${provider.latency}` : "已停用"}</span>`;
+        const button = (label, action, className = "button secondary") => `<button class="${className}" data-action="${action}">${label}</button>`;
+        const heading = (title, description, actions = "") => `<div class="heading"><div><div class="eyebrow">外部账号接入</div><h1>${title}</h1><p>${description}</p></div><div class="heading-actions">${actions}</div></div>`;
+        const tabs = () => `<div class="view-tabs" role="tablist"><button class="${state.view === "overview" ? "active" : ""}" data-view="overview">总览</button><button class="${state.view === "accounts" ? "active" : ""}" data-view="accounts">账号 <em>24</em></button><button class="${state.view === "audits" ? "active" : ""}" data-view="audits">审计</button><button class="${state.view === "help" ? "active" : ""}" data-view="help">说明</button></div>`;
+
+        function render() {
+          const provider = selected();
+          const totals = providers.reduce((sum, item) => ({ accounts: sum.accounts + item.accounts, pending: sum.pending + item.pending }), { accounts: 0, pending: 0 });
+          const titles = { overview: "接入总览", create: "创建接入", provider: provider.name, accounts: "账号管理", audits: "审计记录", help: "配置说明" };
+          document.getElementById("breadcrumb").textContent = titles[state.view];
+          document.querySelectorAll(".nav [data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === state.view));
+
+          if (state.view === "overview") {
+            page.innerHTML = `${heading("EmbyBoss 接入总览", "只看需要关注的状态，账号明细和审计记录按需打开.", button("＋ 创建接入", "create", "button primary"))}${tabs()}<section class="metrics"><div class="card metric"><div class="metric-top"><span>接入数</span><span class="metric-icon blue">⌁</span></div><strong>3</strong><small><span class="positive">全部正常</span> · 健康检查在线</small></div><div class="card metric"><div class="metric-top"><span>正常账号</span><span class="metric-icon green">♙</span></div><strong>${number(totals.accounts)}</strong><small><span class="positive">+126</span> · 最近 24 小时</small></div><div class="card metric"><div class="metric-top"><span>待处理</span><span class="metric-icon amber">!</span></div><strong>${totals.pending}</strong><small><span class="warning">需要关注</span> · 账号状态异常</small></div></section><section class="card section"><div class="section-title"><div><h2>已配置接入</h2><p>进入具体接入后，直接启用/停用、重新生成密钥或维护账号状态。</p></div><button class="link-button" data-action="refresh">↻ 刷新</button></div><div>${providers.map((item) => `<div class="provider-row"><div class="provider-symbol">${esc(item.name.slice(0, 1))}</div><div class="provider-main"><div class="provider-name"><strong>${esc(item.name)}</strong>${status(item)}</div><span>${esc(item.ea)} <i>·</i> ${esc(item.route)}</span></div><div class="provider-stat"><small>账号</small><strong>${number(item.accounts)}</strong></div><div class="provider-stat"><small>待处理</small><strong class="${item.pending ? "warning" : "muted"}">${item.pending}</strong></div><button class="row-button" data-provider="${item.id}" data-view="provider">管理 <span>→</span></button></div>`).join("")}</div></section><div class="lower"><div class="info"><div class="card-icon blue">✦</div><div><h3>只在需要时加载数据</h3><p>总览不会读取账号和审计分页。打开对应视图后，才请求明细。</p></div></div><div class="info"><div class="card-icon purple">✓</div><div><h3>连接状态来自健康检查</h3><p>在线和延迟只代表健康检查可达，不代表当前有正在播放的 session。</p></div></div></div>`;
+          } else if (state.view === "create") {
+            page.innerHTML = `${heading("创建 EmbyBoss 接入", "创建后密钥只显示一次，请立即复制到 EmbyBoss.", button("返回总览", "overview"))}<section class="form-card"><div class="form-intro"><div class="large-icon">＋</div><div><h2>新的 EmbyBoss 接入</h2><p>接入标识、隐藏账号映射和密钥由安全代理生成。</p></div></div>${state.secret ? `<div class="secret"><div class="secret-title"><span class="badge">一次性</span><strong>密钥只显示这一次</strong></div><code>${esc(state.secret)}</code><p>请立即复制到 EmbyBoss。关闭或刷新后只能重新生成新密钥。</p>${button("复制密钥", "copy-secret")}</div>` : `<label>接入名称<input id="new-name" value="${esc(state.newName)}" placeholder="例如：EmbyBoss 公益服" /></label><label>目标 EA 与默认线路<select><option>演示 EA B · 服务器默认线路</option><option>演示接入 A Media · 服务器默认线路</option><option>演示接入 C · 服务器默认线路</option></select></label><div class="form-actions">${button("取消", "overview")}${button("创建并生成密钥", "create-provider", "button primary")}</div>`}</section>`;
+          } else if (state.view === "provider") {
+            page.innerHTML = `${heading(esc(provider.name), `${esc(provider.ea)} · ${esc(provider.route)}`, button("返回总览", "overview"))}<section class="provider-hero"><div class="provider-hero-left"><div class="provider-symbol large">${esc(provider.name.slice(0, 1))}</div><div><div class="provider-name"><h2>${esc(provider.name)}</h2>${status(provider)}</div><p>${esc(provider.ea)} <i>·</i> ${esc(provider.route)} <i>·</i> ${esc(provider.path)}</p></div></div>${button("↻ 刷新", "refresh")}</section><section class="metrics"><div class="card metric"><div class="metric-top"><span>当前状态</span><span class="metric-icon green">✓</span></div><strong>${provider.enabled ? `在线 · ${provider.latency}` : "已停用"}</strong><small>状态来自宿主健康检查</small></div><div class="card metric"><div class="metric-top"><span>账号数</span><span class="metric-icon blue">♙</span></div><strong>${number(provider.accounts)}</strong><small>含 ACTIVE 与待处理账号</small></div><div class="card metric"><div class="metric-top"><span>待处理</span><span class="metric-icon amber">!</span></div><strong>${provider.pending}</strong><small>需要账号状态检查</small></div></section><div class="two-column"><section class="card action-card"><div class="section-title"><div><h2>接入操作</h2><p>根据当前状态只显示一个启用/停用动作。</p></div></div><button class="action-row" data-action="toggle"><span class="action-icon blue">${provider.enabled ? "Ⅱ" : "▶"}</span><span><strong>${provider.enabled ? "停用接入" : "启用接入"}</strong><small>${provider.enabled ? "停用后新请求将不再通过该接入" : "恢复该接入的外部请求"}</small></span><span class="arrow">→</span></button><button class="action-row" data-action="rotate"><span class="action-icon purple">⟳</span><span><strong>重新生成接入密钥</strong><small>旧密钥立即失效，仅显示新密钥一次</small></span><span class="arrow">→</span></button>${state.secret ? `<div class="secret-inline"><span class="badge">新密钥</span><code>${esc(state.secret)}</code><button class="text-button" data-action="copy-secret">复制密钥</button></div>` : ""}</section><section class="card action-card"><div class="section-title"><div><h2>维护</h2><p>核对 EM 账号、EA 用户和线路状态，并修复不一致。</p></div><span class="small-label">后台任务</span></div><button class="maintenance-row" data-action="reconcile" ${state.reconcile.running ? "disabled" : ""}><span class="action-icon amber">${state.reconcile.running ? "…" : "✓"}</span><span><strong>${state.reconcile.running ? "检查进行中" : "检查并修复账号状态"}</strong><small>${state.reconcile.running ? `已完成 ${state.reconcile.progress}% · 已检查 ${number(state.reconcile.checked)}` : "日常无需执行，可能产生较多 EA 请求"}</small></span><span class="arrow">${state.reconcile.running ? `${state.reconcile.progress}%` : "→"}</span></button>${state.reconcile.running ? `<div class="progress-track"><span style="width:${state.reconcile.progress}%"></span></div>` : state.reconcile.progress === 100 ? `<div class="completed">✓ 最近一次：已检查 24 · 已修复 3 · 失败 0</div>` : ""}</section></div><section class="quick-links"><h2>查看该接入</h2><button data-view="accounts" data-provider="${provider.id}"><span>♙</span><div><strong>账号管理</strong><small>查看该接入的账号映射与状态</small></div><b>→</b></button><button data-view="audits" data-provider="${provider.id}"><span>◷</span><div><strong>审计记录</strong><small>查看该接入的操作历史</small></div><b>→</b></button></section>`;
+          } else if (state.view === "accounts") {
+            page.innerHTML = `${heading("账号管理", "按接入和状态查找账号，分页数据只在当前视图加载.", button("返回总览", "overview"))}${tabs()}<section class="data-card"><div class="filters"><div class="search"><span>⌕</span><input id="account-search" placeholder="搜索外部身份或用户名" /></div><select id="account-provider"><option>全部接入</option><option>演示接入 A</option><option>演示接入 B</option><option>演示接入 C</option></select><select id="account-status"><option>全部状态</option><option>ACTIVE</option><option>PENDING</option></select>${button("筛选", "filter-accounts")}</div><div class="table-caption"><strong>账号映射</strong><span>第 1 / 121 页 · 共 24 条</span></div><div id="accounts-table"></div><div class="pagination"><span>显示 1–25 条</span><div><button disabled>←</button><button>→</button></div></div></section>`;
+            renderAccounts();
+          } else if (state.view === "audits") {
+            page.innerHTML = `${heading("审计记录", "按接入、结果和关键词查看管理动作.", button("返回总览", "overview"))}${tabs()}<section class="data-card"><div class="filters"><div class="search"><span>⌕</span><input id="audit-search" placeholder="搜索动作、账号或 IP" /></div><select><option>全部接入</option><option>演示接入 A</option><option>演示接入 B</option><option>演示接入 C</option></select><select><option>全部结果</option><option>success</option><option>partial</option></select>${button("筛选", "refresh")}</div><div class="table-caption"><strong>审计记录</strong><span>第 1 / 52 页 · 共 260 条</span></div><div class="table audit-table"><div class="table-head"><span>时间</span><span>接入</span><span>账号</span><span>动作</span><span>结果</span><span>来源 IP</span></div>${audits.map((row) => `<div class="table-row"><span>${esc(row[0])}</span><span>${esc(row[1])}</span><span>${esc(row[2])}</span><code>${esc(row[3])}</code><span><b class="state ${row[4] === "success" ? "active" : "pending"}">${esc(row[4])}</b></span><span class="muted">${esc(row[5])}</span></div>`).join("")}</div><div class="pagination"><span>显示 1–25 条</span><div><button disabled>←</button><button>→</button></div></div></section>`;
+          } else {
+            page.innerHTML = `${heading("配置说明", "EmbyBoss 的标准 Emby 账号管理接入方式.", button("返回总览", "overview"))}${tabs()}<section class="help-grid"><div class="help-card"><span class="help-number">01</span><h2>接入基地址</h2><p>将接入路径填入 EmbyBoss 的 <code>emby_url</code>。</p><div class="copy-block">/api/external/emby/embyboss-…</div><small>不要手动追加 <code>/emby</code>，EmbyBoss 会自动追加。</small></div><div class="help-card"><span class="help-number">02</span><h2>接入密钥</h2><p>将创建接入或重新生成时出现的一次性密钥填入 <code>emby_api</code>。</p><div class="secure-note"><span>▣</span><span>密钥不会写入插件普通状态或审计正文。关闭页面后只能重新生成。</span></div></div><div class="help-card full"><span class="help-number">03</span><h2>状态说明</h2><div class="legend"><div>${status(providers[0])}<p>健康检查可达，显示最近一次延迟。</p></div><div><b class="state pending">待处理</b><p>账号同步、线路授权或 EA 用户状态需要关注。</p></div><div><b class="state active">正常</b><p>账号已完成映射和策略同步。</p></div></div></div></section>`;
+          }
+        }
+
+        function renderAccounts() {
+          const query = (document.getElementById("account-search")?.value || "").trim().toLowerCase();
+          const providerFilter = document.getElementById("account-provider")?.value || "全部接入";
+          const statusFilter = document.getElementById("account-status")?.value || "全部状态";
+          const filtered = accounts.filter((row) => (!query || row.some((value) => value.toLowerCase().includes(query))) && (providerFilter === "全部接入" || row[1] === providerFilter) && (statusFilter === "全部状态" || row[2] === statusFilter));
+          document.getElementById("accounts-table").innerHTML = `<div class="table"><div class="table-head"><span>外部身份</span><span>接入</span><span>状态</span><span>最近同步</span><span>异常</span></div>${filtered.length ? filtered.map((row) => `<div class="table-row"><strong>${esc(row[0])}</strong><span>${esc(row[1])}</span><span><b class="state ${row[2] === "ACTIVE" ? "active" : "pending"}">${esc(row[2])}</b></span><span>${esc(row[3])}</span><span class="${row[4] === "—" ? "muted" : "warning"}">${esc(row[4])}</span></div>`).join("") : `<div class="table-row"><span>没有匹配的模拟账号</span></div>`}</div>`;
+        }
+
+        function showToast(message) {
+          toast.querySelector("span").textContent = message;
+          toast.hidden = false;
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(() => { toast.hidden = true; }, 3600);
+        }
+
+        function go(view, providerId) {
+          state.view = view;
+          state.secret = "";
+          if (providerId) state.selected = providerId;
+          render();
+        }
+
+        function copySecret() {
+          if (!state.secret) return;
+          if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(state.secret).catch(() => {});
+          showToast("密钥已复制；这是模拟值，不会写入任何系统。");
+        }
+
+        function startReconcile() {
+          if (state.reconcile.running) return;
+          state.reconcile = { running: true, progress: 0, checked: 0, repaired: 0, failed: 0 };
+          showToast("检查并修复账号状态已在后台启动。");
+          render();
+          const timer = window.setInterval(() => {
+            state.reconcile.progress = Math.min(100, state.reconcile.progress + 17);
+            state.reconcile.checked = Math.round(24 * state.reconcile.progress / 100);
+            if (state.reconcile.progress >= 100) {
+              state.reconcile = { running: false, progress: 100, checked: 24, repaired: 3, failed: 0 };
+              window.clearInterval(timer);
+              showToast("账号状态检查完成，已修复 3 个模拟不一致项。");
+            }
+            render();
+          }, 520);
+        }
+
+        document.addEventListener("click", (event) => {
+          const target = event.target.closest("[data-view], [data-action]");
+          if (!target) return;
+          if (target.dataset.view) { go(target.dataset.view, target.dataset.provider); return; }
+          const action = target.dataset.action;
+          if (action === "overview" || action === "create" || action === "accounts" || action === "audits" || action === "help") { go(action); return; }
+          if (action === "refresh") { showToast("模拟数据已刷新，当前视图保持不变。"); return; }
+          if (action === "copy-secret") { copySecret(); return; }
+          if (action === "toggle") { const provider = selected(); provider.enabled = !provider.enabled; showToast(`${provider.enabled ? "已启用" : "已停用"}「${provider.name}」`); render(); return; }
+          if (action === "rotate") { state.secret = `eb_demo_${selected().id}_demo_x7k2`; showToast("已生成新密钥；旧密钥已失效，请立即更新 EmbyBoss 配置。"); render(); return; }
+          if (action === "reconcile") { startReconcile(); return; }
+          if (action === "create-provider") {
+            const input = document.getElementById("new-name");
+            state.newName = input ? input.value : "";
+            if (!state.newName.trim()) { showToast("请先填写接入名称。"); return; }
+            state.secret = `eb_demo_${state.newName.trim().replace(/\s+/g, "-").toLowerCase()}_one_time`;
+            showToast("接入已创建，密钥只显示这一次。");
+            render();
+          }
+          if (action === "filter-accounts") renderAccounts();
+        });
+
+        document.addEventListener("input", (event) => {
+          if (event.target.id === "new-name") state.newName = event.target.value;
+        });
+        render();
+      })();
+    </script>
+  </body>
+</html>
