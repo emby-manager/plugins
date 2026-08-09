@@ -22,6 +22,9 @@ jobs:
     environment: plugin-signing
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24.10.0
@@ -53,7 +56,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.metadata.outputs.tag }}
           PACKAGE_FILE: dist/${{ steps.metadata.outputs.filename }}
-        run: gh release create "$TAG" "$PACKAGE_FILE" --title "$TAG" --generate-notes
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$PACKAGE_FILE" --clobber
+          else
+            gh release create "$TAG" "$PACKAGE_FILE" --title "$TAG" --generate-notes
+          fi
       - name: Update and sign catalog
         env:
           EM_PLUGIN_SIGNING_KEY: ${{ secrets.EM_PLUGIN_SIGNING_KEY }}
