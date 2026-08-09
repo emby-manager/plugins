@@ -10,6 +10,10 @@ export const PLUGIN_CAPABILITIES = [
   'user.email.self.read',
   'user.email.any.read',
   'user.directory.read',
+  'points.balance.self.read',
+  'points.balance.any.read',
+  'points.balance.self.spend',
+  'points.balance.any.adjust',
   'emby.account.self.read',
   'emby.account.any.read',
   'emby.account.expiry.write',
@@ -151,6 +155,27 @@ export interface PlaybackSessionSnapshot {
   source: 'WEBHOOK' | 'POLL'
 }
 
+export interface PointBalanceSnapshot {
+  userId: number
+  balance: number
+  unit: string
+}
+
+export interface PointMutationInput {
+  /** Positive for spend; signed for an administrator adjustment. Maximum absolute value: 1,000,000. */
+  amount: number
+  /** Human-readable ledger reason, 1-256 characters. */
+  reason: string
+  /** Stable retry key. Reusing it with different input is rejected. */
+  idempotencyKey: string
+}
+
+export interface PointMutationResult extends PointBalanceSnapshot {
+  transactionId: string
+  amount: number
+  replayed: boolean
+}
+
 export interface ExternalAccountAdminProvider {
   id: string
   name: string
@@ -165,6 +190,7 @@ export interface ExternalAccountAdminProvider {
   server: { id: string; name: string; isActive: boolean }
   routePackage: { id: number; name: string } | null
   accountCounts: Record<string, number>
+  reconcileStatus?: ExternalProviderReconcileResult | null
 }
 
 export interface ExternalAccountAdminAccount {
@@ -178,6 +204,51 @@ export interface ExternalAccountAdminAccount {
   server: { id: string; name: string }
   internalUser: { id: number; userName: string }
   embyUser: { id: number; embyId: string | null; activateTo: string | null } | null
+}
+
+export interface ExternalAccountAdminAudit {
+  id: number
+  createdAt: string
+  action: string
+  outcome: string
+  ip: string | null
+  provider: { id: string; name: string }
+  account: { id: string; externalName: string } | null
+}
+
+export interface ExternalAccountAdminPage<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+/** New hosts return a page object; older 0.1.9.4 hosts returned a bounded array. */
+export type ExternalAccountAdminPageCompat<T> = ExternalAccountAdminPage<T> | T[]
+
+export interface ExternalProviderReconcileResult {
+  running?: boolean
+  checked: number
+  completed?: number
+  repaired: number
+  failed: number
+  retried?: number
+  rateLimited?: number
+  progress?: number
+  durationMs?: number
+  coalesced?: boolean
+  startedAt?: string
+  updatedAt?: string
+  finishedAt?: string | null
+  errorOverflow?: number
+  errors?: Array<{
+    id: string
+    message: string
+    attempts: number
+    retryable: boolean
+    upstreamStatus: number | null
+  }>
 }
 
 export interface PluginContext {
@@ -206,6 +277,12 @@ export interface PluginContext {
     getMyEmail(): Promise<unknown>
     getEmail(userId: number): Promise<unknown>
     listDirectory(options?: { search?: string; limit?: number }): Promise<unknown[]>
+  }
+  points: {
+    getMyBalance(): Promise<PointBalanceSnapshot>
+    getBalance(userId: number): Promise<PointBalanceSnapshot>
+    spend(input: PointMutationInput): Promise<PointMutationResult>
+    adjust(userId: number, input: PointMutationInput): Promise<PointMutationResult>
   }
   emby: {
     listMyAccounts(): Promise<unknown[]>
@@ -296,19 +373,25 @@ export interface PluginContext {
     }): Promise<ExternalAccountAdminProvider>
     rotateProviderSecret(providerId: string): Promise<{ provider: ExternalAccountAdminProvider; secret: string }>
     deleteProvider(providerId: string): Promise<{ deleted: boolean }>
-    reconcileProvider(providerId: string): Promise<{ checked: number; repaired: number; failed: number }>
-    listAccounts(input?: { providerId?: string; state?: string; search?: string }): Promise<ExternalAccountAdminAccount[]>
+    reconcileProvider(providerId: string): Promise<ExternalProviderReconcileResult>
+    listAccounts(input?: {
+      providerId?: string
+      state?: string
+      search?: string
+      page?: number
+      pageSize?: number
+    }): Promise<ExternalAccountAdminPageCompat<ExternalAccountAdminAccount>>
     reconcileAccount(providerId: string, accountId: string): Promise<unknown>
     deleteAccount(providerId: string, accountId: string): Promise<{ deleted: boolean }>
-    listAudits(input?: { providerId?: string }): Promise<Array<{
-      id: number
-      createdAt: string
-      action: string
-      outcome: string
-      ip: string | null
-      provider: { id: string; name: string }
-      account: { id: string; externalName: string } | null
-    }>>
+    listAudits(input?: {
+      providerId?: string
+      accountId?: string
+      action?: string
+      outcome?: string
+      search?: string
+      page?: number
+      pageSize?: number
+    }): Promise<ExternalAccountAdminPageCompat<ExternalAccountAdminAudit>>
   }
 }
 
