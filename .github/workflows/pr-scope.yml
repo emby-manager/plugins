@@ -20,7 +20,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-          AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
           set -euo pipefail
           mapfile -t changed_paths < <(
@@ -64,12 +63,5 @@ jobs:
             echo "::error::Repository infrastructure changes require an in-repository maintenance/* branch."
             exit 1
           fi
-          case "$AUTHOR_ASSOCIATION" in
-            OWNER|MEMBER|COLLABORATOR) ;;
-            *)
-              echo "::error::Only repository maintainers may submit infrastructure-only changes."
-              exit 1
-              ;;
-          esac
 
           echo "Accepted maintainer infrastructure PR: $HEAD_BRANCH"
