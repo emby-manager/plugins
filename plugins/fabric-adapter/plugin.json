@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "io.emby-manager.adapter.fabric",
   "name": "Fabric 外部账号适配器",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "apiVersion": "2",
   "description": "将 Fabric 的 Emby 账号管理协议安全映射到 EM 托管的 EA 账号生命周期。",
   "author": "Emby Manager",

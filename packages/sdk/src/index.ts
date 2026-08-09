@@ -188,6 +188,13 @@ export interface ExternalAccountAdminProvider {
   secretPrefix: string
   lastUsedAt: string | null
   server: { id: string; name: string; isActive: boolean }
+  health?: {
+    state: 'online' | 'offline' | 'misconfigured'
+    checkedAt: string
+    latencyMs: number | null
+    version: string | null
+    message: string | null
+  }
   routePackage: { id: number; name: string } | null
   accountCounts: Record<string, number>
   reconcileStatus?: ExternalProviderReconcileResult | null

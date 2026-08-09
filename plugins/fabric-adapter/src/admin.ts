@@ -314,7 +314,7 @@ async function page(
             name: provider.name,
             server: provider.server.name,
             route: provider.routePackage?.name || '服务器默认',
-            status: `${provider.enabled ? '运行中' : '已停用'}${provider.reconcileStatus?.running ? ` · 对账 ${provider.reconcileStatus.progress ?? 0}%` : ''}`,
+            status: `${!provider.enabled ? '已停用' : provider.health?.state === 'online' ? `在线${provider.health.latencyMs != null ? ` · ${provider.health.latencyMs}ms` : ''}` : provider.health?.state === 'offline' ? `离线 · ${provider.health.message || '健康检查失败'}` : `配置异常 · ${provider.health?.message || '无法检查 EA'}`}${provider.reconcileStatus?.running ? ` · 对账 ${provider.reconcileStatus.progress ?? 0}%` : ''}`,
             accounts: Object.values(provider.accountCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0),
             endpoint: `/api/external/emby/${provider.slug}`,
           })),
