@@ -47,17 +47,72 @@ function upstream(result: { status: number; contentType: string; body: unknown }
   return { status: result.status, headers: { 'content-type': result.contentType }, body: result.body }
 }
 
+type FailureSource = {
+  message?: unknown
+  code?: unknown
+  status?: unknown
+  upstreamStatus?: unknown
+  retryAfter?: unknown
+  retryAfterSeconds?: unknown
+  retry_after?: unknown
+  headers?: unknown
+}
+
+function boundedStatus(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const status = Number(value)
+  return Number.isInteger(status) && status >= 400 && status <= 599 ? status : null
+}
+
+function statusFromMessage(value: unknown): number | null {
+  if (typeof value !== 'string') return null
+  const match = value.trim().match(/^HTTP\s+([45]\d{2})(?:\s|:|$)/i)
+  return boundedStatus(match?.[1])
+}
+
+function headerValue(headers: unknown, name: string): unknown {
+  if (!headers || typeof headers !== 'object' || Array.isArray(headers)) return undefined
+  const entries = Object.entries(headers as Record<string, unknown>)
+  return entries.find(([key]) => key.toLocaleLowerCase('en-US') === name.toLocaleLowerCase('en-US'))?.[1]
+}
+
+function boundedRetryAfter(source: FailureSource): string | null {
+  const value = source.retryAfter
+    ?? source.retryAfterSeconds
+    ?? source.retry_after
+    ?? headerValue(source.headers, 'retry-after')
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const text = String(value).trim()
+  if (!/^\d{1,5}$/.test(text)) return null
+  const seconds = Number(text)
+  return Number.isSafeInteger(seconds) && seconds >= 0 && seconds <= 86_400 ? String(seconds) : null
+}
+
+function failureCode(status: number, sourceCode: unknown): string {
+  if (typeof sourceCode === 'string' && sourceCode.trim()) return sourceCode
+  if (status === 401) return 'EXTERNAL_ACCOUNT_AUTHENTICATION_FAILED'
+  if (status === 403) return 'EXTERNAL_ACCOUNT_FORBIDDEN'
+  if (status === 429) return 'EXTERNAL_ACCOUNT_RATE_LIMITED'
+  return 'external_adapter_error'
+}
+
 function failure(error: unknown): ExternalAccountAdapterResponse {
-  const source = error as { message?: unknown; code?: unknown; status?: unknown }
-  const status = Number(source?.status)
-  const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500
-  const message = typeof source?.message === 'string' ? source.message : 'External account request failed'
+  const source = (error && typeof error === 'object' ? error : {}) as FailureSource
+  const message = typeof source.message === 'string' ? source.message : 'External account request failed'
+  const safeStatus = boundedStatus(source.status)
+    ?? boundedStatus(source.upstreamStatus)
+    ?? statusFromMessage(message)
+    ?? 500
+  const retryAfter = safeStatus === 429 ? boundedRetryAfter(source) : null
+  const headers = retryAfter ? { 'retry-after': retryAfter } : undefined
   return {
     status: safeStatus,
+    ...(headers ? { headers } : {}),
     body: {
       Message: message,
       message,
-      code: typeof source?.code === 'string' ? source.code : 'external_adapter_error',
+      code: failureCode(safeStatus, source.code),
+      retryable: safeStatus === 429 || safeStatus >= 500,
     },
   }
 }

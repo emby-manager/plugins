@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "io.emby-manager.adapter.embyboss",
   "name": "EmbyBoss 外部账号适配器",
-  "version": "2.2.1",
+  "version": "2.2.6",
   "apiVersion": "2",
   "description": "将 Sakura EmbyBoss 的 Emby 账号管理协议安全映射到 EM 托管的 EA 账号生命周期。",
   "author": "Emby Manager",

@@ -63,3 +63,34 @@ test('EmbyBoss adapter converts denied host capabilities into bounded protocol e
   assert.equal(response?.status, 403)
   assert.equal((response?.body as any).code, 'PLUGIN_CAPABILITY_DENIED')
 })
+
+test('EmbyBoss adapter maps an HTTP status embedded in a host error message', async () => {
+  const limited = new Error('HTTP 429: {"Message":"External account API rate limit exceeded"}')
+  const response = await handlers?.['list-users'](request(), {
+    externalAccounts: { listAccounts: async () => { throw limited } },
+  } as never)
+  assert.equal(response?.status, 429)
+  assert.equal((response?.body as any).code, 'EXTERNAL_ACCOUNT_RATE_LIMITED')
+  assert.equal((response?.body as any).retryable, true)
+})
+
+test('EmbyBoss adapter forwards a bounded upstream Retry-After value', async () => {
+  const limited = Object.assign(new Error('上游请求过于频繁'), {
+    upstreamStatus: 429,
+    retryAfterSeconds: 7,
+  })
+  const response = await handlers?.['list-users'](request(), {
+    externalAccounts: { listAccounts: async () => { throw limited } },
+  } as never)
+  assert.deepEqual(response?.headers, { 'retry-after': '7' })
+  assert.equal((response?.body as any).code, 'EXTERNAL_ACCOUNT_RATE_LIMITED')
+})
+
+test('EmbyBoss adapter keeps unknown failures as internal errors', async () => {
+  const response = await handlers?.['list-users'](request(), {
+    externalAccounts: { listAccounts: async () => { throw new Error('host failed') } },
+  } as never)
+  assert.equal(response?.status, 500)
+  assert.equal((response?.body as any).code, 'external_adapter_error')
+  assert.equal((response?.body as any).retryable, true)
+})
