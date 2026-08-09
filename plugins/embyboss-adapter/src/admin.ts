@@ -1,8 +1,68 @@
 import type {
   ExternalAccountAdminAccount,
+  ExternalAccountAdminAudit,
+  ExternalAccountAdminPageCompat,
   ExternalAccountAdminProvider,
   PluginContext,
 } from '@emby-manager/plugin-sdk'
+
+interface DashboardFilters {
+  providerId: string
+  accountState: string
+  accountSearch: string
+  auditOutcome: string
+  auditSearch: string
+  accountPage: number
+  auditPage: number
+  pageSize: number
+}
+
+function boundedInteger(value: unknown, fallback: number, maximum: number): number {
+  const result = Number(value)
+  return Number.isSafeInteger(result) && result >= 1 ? Math.min(maximum, result) : fallback
+}
+
+function optionalText(value: unknown, max = 100): string {
+  return typeof value === 'string' ? value.trim().slice(0, max) : ''
+}
+
+function dashboardFilters(value: unknown): DashboardFilters {
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  const providerId = optionalText(input.providerId, 191)
+  return {
+    providerId: providerId === 'ALL' ? '' : providerId,
+    accountState: optionalText(input.accountState, 24).toUpperCase() || 'ALL',
+    accountSearch: optionalText(input.accountSearch),
+    auditOutcome: optionalText(input.auditOutcome, 32) || 'ALL',
+    auditSearch: optionalText(input.auditSearch),
+    accountPage: boundedInteger(input.accountPage, 1, 1_000_000),
+    auditPage: boundedInteger(input.auditPage, 1, 1_000_000),
+    pageSize: boundedInteger(input.pageSize, 25, 100),
+  }
+}
+
+function normalizePage<T>(value: ExternalAccountAdminPageCompat<T>, requestedPage: number, pageSize: number) {
+  if (Array.isArray(value)) {
+    return { items: value, total: value.length, page: 1, pageSize: Math.max(1, value.length || pageSize), totalPages: value.length ? 1 : 0 }
+  }
+  return value && Array.isArray(value.items)
+    ? value
+    : { items: [] as T[], total: 0, page: requestedPage, pageSize, totalPages: 0 }
+}
+
+function navigationInput(filters: DashboardFilters, updates: Partial<DashboardFilters> = {}) {
+  const value = { ...filters, ...updates }
+  return {
+    providerId: value.providerId || 'ALL',
+    accountState: value.accountState,
+    accountSearch: value.accountSearch,
+    auditOutcome: value.auditOutcome,
+    auditSearch: value.auditSearch,
+    accountPage: value.accountPage,
+    auditPage: value.auditPage,
+    pageSize: value.pageSize,
+  }
+}
 
 function required(value: unknown, name: string, max = 191): string {
   const result = typeof value === 'string' ? value.trim() : ''
@@ -25,21 +85,43 @@ async function dashboard(
   ctx: PluginContext,
   message?: string,
   oneTimeSecret?: { provider: ExternalAccountAdminProvider; secret: string },
+  requestedFilters?: unknown,
+  messageTone: 'success' | 'warning' = 'success',
 ) {
-  const [options, providers, accounts, audits] = await Promise.all([
+  const filters = dashboardFilters(requestedFilters)
+  const [options, providers, accountResult, auditResult] = await Promise.all([
     ctx.externalAccountsAdmin.getOptions(),
     ctx.externalAccountsAdmin.listProviders(),
-    ctx.externalAccountsAdmin.listAccounts(),
-    ctx.externalAccountsAdmin.listAudits(),
+    ctx.externalAccountsAdmin.listAccounts({
+      providerId: filters.providerId || undefined,
+      state: filters.accountState,
+      search: filters.accountSearch || undefined,
+      page: filters.accountPage,
+      pageSize: filters.pageSize,
+    }),
+    ctx.externalAccountsAdmin.listAudits({
+      providerId: filters.providerId || undefined,
+      outcome: filters.auditOutcome,
+      search: filters.auditSearch || undefined,
+      page: filters.auditPage,
+      pageSize: filters.pageSize,
+    }),
   ])
+  const accountPage = normalizePage<ExternalAccountAdminAccount>(accountResult, filters.accountPage, filters.pageSize)
+  const auditPage = normalizePage<ExternalAccountAdminAudit>(auditResult, filters.auditPage, filters.pageSize)
+  const accounts = accountPage.items
+  const audits = auditPage.items
   const adapter = options.adapters.find((item) => item.id === 'embyboss')
   const targets = options.servers.flatMap((server) => {
     if (!server.ready) return []
     if (!server.routePackages.length) return [{ label: `${server.name} · 服务器默认线路`, value: `${server.id}::` }]
     return server.routePackages.map((item) => ({ label: `${server.name} · ${item.name}`, value: `${server.id}::${item.id}` }))
   }).slice(0, 50)
-  const active = accounts.filter((item) => item.state === 'ACTIVE').length
-  const issues = accounts.filter((item) => ['FAILED', 'PENDING', 'DELETE_PENDING'].includes(item.state)).length
+  const active = providers.reduce((sum, item) => sum + Number(item.accountCounts?.ACTIVE || 0), 0)
+  const issues = providers.reduce((sum, item) => sum
+    + Number(item.accountCounts?.FAILED || 0)
+    + Number(item.accountCounts?.PENDING || 0)
+    + Number(item.accountCounts?.DELETE_PENDING || 0), 0)
   await ctx.storage.set('external-admin/state-v1', {
     schemaVersion: 1,
     updatedAt: new Date().toISOString(),
@@ -51,6 +133,7 @@ async function dashboard(
       routePackageId: provider.routePackageId,
       enabled: provider.enabled,
     })),
+    accountPage: { total: accountPage.total, page: accountPage.page, pageSize: accountPage.pageSize },
     accounts: accounts.map((account) => ({
       id: account.id,
       providerId: account.provider.id,
@@ -60,6 +143,37 @@ async function dashboard(
       failureReason: account.failureReason?.slice(0, 500) || null,
     })),
   })
+
+  const providerFilterOptions = [{ label: '全部接入', value: 'ALL' }, ...providerOptions(providers)]
+  const accountNavigation = [
+    ...(accountPage.page > 1 ? [{
+      type: 'action', id: 'accounts-previous', title: '上一页', action: 'load-admin', variant: 'outline',
+      input: navigationInput(filters, { accountPage: accountPage.page - 1 }),
+    }] : []),
+    ...(accountPage.page < accountPage.totalPages ? [{
+      type: 'action', id: 'accounts-next', title: '下一页', action: 'load-admin', variant: 'outline',
+      input: navigationInput(filters, { accountPage: accountPage.page + 1 }),
+    }] : []),
+  ]
+  const auditNavigation = [
+    ...(auditPage.page > 1 ? [{
+      type: 'action', id: 'audits-previous', title: '上一页', action: 'load-admin', variant: 'outline',
+      input: navigationInput(filters, { auditPage: auditPage.page - 1 }),
+    }] : []),
+    ...(auditPage.page < auditPage.totalPages ? [{
+      type: 'action', id: 'audits-next', title: '下一页', action: 'load-admin', variant: 'outline',
+      input: navigationInput(filters, { auditPage: auditPage.page + 1 }),
+    }] : []),
+  ]
+  const reconciliationSummaries = providers.flatMap((provider) => {
+    const status = provider.reconcileStatus
+    if (!status) return []
+    const headline = status.running
+      ? `${provider.name}：进行中 ${status.progress ?? 0}%（${status.completed ?? 0}/${status.checked || '待统计'}），已重试 ${status.retried ?? 0} 次`
+      : `${provider.name}：已完成，同步 ${status.repaired}，失败 ${status.failed}，重试 ${status.retried ?? 0} 次，耗时 ${Math.round((status.durationMs ?? 0) / 1000)} 秒`
+    const errors = status.errors?.slice(0, 3).map((item) => `  - ${item.id}: ${item.message.slice(0, 180)}`) || []
+    return [[headline, ...errors].join('\n')]
+  }).slice(0, 20)
 
   return {
     version: 1,
@@ -73,7 +187,12 @@ async function dashboard(
           { type: 'metric', id: 'issue-count', title: '待处理', value: issues },
         ],
       },
-      ...(message ? [{ id: 'notice', blocks: [{ type: 'text', id: 'notice-text', title: '操作完成', content: message, tone: 'success' }] }] : []),
+      ...(message ? [{ id: 'notice', blocks: [{ type: 'text', id: 'notice-text', title: messageTone === 'warning' ? '操作部分完成' : '操作完成', content: message, tone: messageTone }] }] : []),
+      ...(reconciliationSummaries.length ? [{ id: 'reconcile-progress', blocks: [{
+        type: 'text', id: 'reconcile-progress-text', title: '全量对账进度',
+        content: reconciliationSummaries.join('\n\n'),
+        tone: providers.some((item) => !item.reconcileStatus?.running && Number(item.reconcileStatus?.failed || 0) > 0) ? 'warning' : 'info',
+      }] }] : []),
       ...(oneTimeSecret ? [{ id: 'secret', blocks: [{
         type: 'text', id: 'one-time-secret', title: '密钥只显示这一次', tone: 'warning',
         content: `接入基地址：/api/external/emby/${oneTimeSecret.provider.slug}\nEmby API 密钥：${oneTimeSecret.secret}\n\n在 EmbyBoss 中填入当前 EM 站点域名 + 上述路径。EmbyBoss 会自动追加 /emby，这里不要再添加。`,
@@ -99,6 +218,31 @@ async function dashboard(
           ] },
         ],
       }, { type: 'action', id: 'refresh', title: '刷新数据', action: 'load-admin', variant: 'outline' }] }] : []),
+      {
+        id: 'filters', title: '账号与审计筛选',
+        description: '账号映射和审计分别分页读取；翻页会保留当前筛选条件。',
+        blocks: [{
+          type: 'form', id: 'list-filters', action: 'load-admin', submitLabel: '应用筛选',
+          fields: [
+            { name: 'providerId', label: '接入', type: 'select', defaultValue: filters.providerId || 'ALL', options: providerFilterOptions },
+            { name: 'accountState', label: '账号状态', type: 'select', defaultValue: filters.accountState, options: [
+              { label: '全部状态', value: 'ALL' }, { label: '正常', value: 'ACTIVE' }, { label: '待同步', value: 'PENDING' },
+              { label: '失败', value: 'FAILED' }, { label: '已停用', value: 'DISABLED' },
+              { label: '待删除', value: 'DELETE_PENDING' }, { label: '已删除', value: 'DELETED' },
+            ] },
+            { name: 'accountSearch', label: '搜索账号', type: 'text', defaultValue: filters.accountSearch, placeholder: '外部身份或 EM 内部用户名' },
+            { name: 'auditOutcome', label: '审计结果', type: 'select', defaultValue: filters.auditOutcome, options: [
+              { label: '全部结果', value: 'ALL' }, { label: '成功', value: 'success' }, { label: '失败', value: 'failed' },
+              { label: '部分成功', value: 'partial' }, { label: '重试中', value: 'retrying' },
+            ] },
+            { name: 'auditSearch', label: '搜索审计', type: 'text', defaultValue: filters.auditSearch, placeholder: '动作、账号、接入、请求 ID 或 IP' },
+            { name: 'pageSize', label: '每页条数', type: 'select', defaultValue: String(filters.pageSize), options: [
+              { label: '每页 10 条', value: '10' }, { label: '每页 25 条', value: '25' },
+              { label: '每页 50 条', value: '50' }, { label: '每页 100 条', value: '100' },
+            ] },
+          ],
+        }],
+      },
       ...(accounts.some((item) => item.state !== 'DELETED') ? [{ id: 'account-actions', title: '账号操作', blocks: [{
         type: 'form', id: 'manage-account', action: 'manage-account', submitLabel: '执行账号操作', fields: [
           { name: 'account', label: '外部账号', type: 'select', required: true, options: accountOptions(accounts) },
@@ -115,33 +259,33 @@ async function dashboard(
         ],
         rows: providers.map((item) => ({
           name: item.name, server: item.server.name, route: item.routePackage?.name || '服务器默认',
-          status: item.enabled ? '运行中' : '已停用',
+          status: `${item.enabled ? '运行中' : '已停用'}${item.reconcileStatus?.running ? ` · 对账 ${item.reconcileStatus.progress ?? 0}%` : ''}`,
           accounts: Object.values(item.accountCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0),
           endpoint: `/api/external/emby/${item.slug}`,
         })),
       }] },
-      { id: 'accounts', title: '账号映射', blocks: [{
+      { id: 'accounts', title: `账号映射 · 第 ${accountPage.page}/${Math.max(1, accountPage.totalPages)} 页 · 共 ${accountPage.total} 条`, blocks: [{
         type: 'table', id: 'accounts-table',
         columns: [
           { key: 'name', label: '外部身份' }, { key: 'provider', label: '接入' }, { key: 'status', label: '状态' },
           { key: 'eaId', label: 'EA 用户 ID' }, { key: 'syncedAt', label: '最近同步' }, { key: 'error', label: '异常' },
         ],
-        rows: accounts.slice(0, 200).map((item) => ({
+        rows: accounts.map((item) => ({
           name: item.externalName, provider: item.provider.name, status: item.state,
           eaId: item.embyUser?.embyId || '—', syncedAt: item.lastSyncAt || '—', error: item.failureReason || '—',
         })),
-      }] },
-      { id: 'audits', title: '审计', blocks: [{
+      }, ...accountNavigation] },
+      { id: 'audits', title: `审计 · 第 ${auditPage.page}/${Math.max(1, auditPage.totalPages)} 页 · 共 ${auditPage.total} 条`, blocks: [{
         type: 'table', id: 'audits-table',
         columns: [
           { key: 'time', label: '时间' }, { key: 'provider', label: '接入' }, { key: 'account', label: '账号' },
           { key: 'action', label: '动作' }, { key: 'outcome', label: '结果' }, { key: 'ip', label: '来源 IP' },
         ],
-        rows: audits.slice(0, 200).map((item) => ({
+        rows: audits.map((item) => ({
           time: item.createdAt, provider: item.provider.name, account: item.account?.externalName || '—',
           action: item.action, outcome: item.outcome, ip: item.ip || '—',
         })),
-      }] },
+      }, ...auditNavigation] },
       ...(adapter ? [{ id: 'instructions', title: 'EmbyBoss 配置说明', blocks: [{
         type: 'text', id: 'config-hint', title: adapter.name, tone: 'info',
         content: `${adapter.description || ''}\n\n${adapter.configHint || ''}\n${adapter.addressHint || ''}`,
@@ -151,7 +295,7 @@ async function dashboard(
 }
 
 export const adminActions = {
-  'load-admin': async (_input: unknown, ctx: PluginContext) => ({ page: await dashboard(ctx) }),
+  'load-admin': async (input: unknown, ctx: PluginContext) => ({ page: await dashboard(ctx, undefined, undefined, input) }),
   'create-provider': async (input: unknown, ctx: PluginContext) => {
     const form = input as Record<string, unknown>
     const [serverId, routePackageId = ''] = required(form.target, 'target').split('::')
@@ -166,16 +310,22 @@ export const adminActions = {
     const id = required(form.providerId, 'providerId')
     const operation = required(form.operation, 'operation', 32)
     let message = '操作已完成'
+    let messageTone: 'success' | 'warning' = 'success'
     let secret: { provider: ExternalAccountAdminProvider; secret: string } | undefined
     if (operation === 'enable') await ctx.externalAccountsAdmin.updateProvider(id, { enabled: true })
     else if (operation === 'disable') await ctx.externalAccountsAdmin.updateProvider(id, { enabled: false })
     else if (operation === 'reconcile') {
       const result = await ctx.externalAccountsAdmin.reconcileProvider(id)
-      message = `对账完成：检查 ${result.checked}，同步 ${result.repaired}，失败 ${result.failed}`
+      message = result.running
+        ? `全量对账已在后台启动${result.coalesced ? '（已有任务，未重复执行）' : ''}。可点击“刷新数据”查看实时进度；离开本页不会中断。`
+        : `对账完成：${result.progress ?? 100}%（${result.completed ?? result.checked}/${result.checked}），同步 ${result.repaired}，失败 ${result.failed}，重试 ${result.retried ?? 0} 次，其中限流 ${result.rateLimited ?? 0} 次${result.durationMs != null ? `，耗时 ${Math.round(result.durationMs / 1000)} 秒` : ''}`
+      const diagnostics = result.errors?.slice(0, 3).map((item) => `${item.id}: ${item.message.slice(0, 180)}`) || []
+      if (diagnostics.length) message += `\n失败示例：\n${diagnostics.join('\n')}`
+      if (!result.running && result.failed) messageTone = 'warning'
     } else if (operation === 'rotate-secret') secret = await ctx.externalAccountsAdmin.rotateProviderSecret(id)
     else if (operation === 'delete') await ctx.externalAccountsAdmin.deleteProvider(id)
     else throw new Error('不支持的接入操作')
-    return { message, page: await dashboard(ctx, message, secret) }
+    return { message, page: await dashboard(ctx, message, secret, undefined, messageTone) }
   },
   'manage-account': async (input: unknown, ctx: PluginContext) => {
     const form = input as Record<string, unknown>

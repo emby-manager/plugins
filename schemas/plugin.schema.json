@@ -40,6 +40,8 @@
           "storage.kv.read", "storage.kv.write", "storage.secret.read", "storage.secret.write",
           "user.profile.self.read", "user.profile.any.read",
           "user.email.self.read", "user.email.any.read", "user.directory.read",
+          "points.balance.self.read", "points.balance.any.read",
+          "points.balance.self.spend", "points.balance.any.adjust",
           "emby.account.self.read", "emby.account.any.read", "emby.account.expiry.write",
           "emby.connection.self.read",
           "emby.library.read",
