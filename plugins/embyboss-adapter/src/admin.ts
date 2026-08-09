@@ -259,7 +259,7 @@ async function dashboard(
         ],
         rows: providers.map((item) => ({
           name: item.name, server: item.server.name, route: item.routePackage?.name || '服务器默认',
-          status: `${item.enabled ? '运行中' : '已停用'}${item.reconcileStatus?.running ? ` · 对账 ${item.reconcileStatus.progress ?? 0}%` : ''}`,
+          status: `${!item.enabled ? '已停用' : item.health?.state === 'online' ? `在线${item.health.latencyMs != null ? ` · ${item.health.latencyMs}ms` : ''}` : item.health?.state === 'offline' ? `离线 · ${item.health.message || '健康检查失败'}` : `配置异常 · ${item.health?.message || '无法检查 EA'}`}${item.reconcileStatus?.running ? ` · 对账 ${item.reconcileStatus.progress ?? 0}%` : ''}`,
           accounts: Object.values(item.accountCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0),
           endpoint: `/api/external/emby/${item.slug}`,
         })),
