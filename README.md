@@ -170,6 +170,7 @@ EM 默认信任本仓库目录使用的 Ed25519 公钥；官方发布者不可�
 
 - [贡献指南](CONTRIBUTING.md)
 - [能力清单](docs/capabilities.md)
+- [SDK API 参考](docs/sdk-api.md)
 - [安全模型](docs/security.md)
 - [Manifest Schema](schemas/plugin.schema.json)
 

@@ -21,6 +21,10 @@
 | `user.email.self.read` | `users.getMyEmail` | 仅当前认证用户 |
 | `user.email.any.read` | `users.getEmail` | 指定用户；必须由管理员 Action 发起 |
 | `user.directory.read` | `users.listDirectory` | 用户目录；必须由管理员 Action 发起 |
+| `points.balance.self.read` | `points.getMyBalance` | 仅当前认证用户；只返回总积分与积分单位 |
+| `points.balance.any.read` | `points.getBalance` | 指定用户；必须由管理员 Action 发起 |
+| `points.balance.self.spend` | `points.spend` | 仅原子扣减当前用户；必须提供原因与幂等键，余额不足则整笔失败 |
+| `points.balance.any.adjust` | `points.adjust` | 管理员对指定用户增减积分；必须由管理员 Action 发起，独立记账并审计 |
 | `emby.account.self.read` | `emby.listMyAccounts` | 仅当前认证用户 |
 | `emby.account.any.read` | `emby.listAccounts` | 指定用户；必须由管理员 Action 发起 |
 | `emby.account.expiry.write` | `emby.updateExpiry` | 仅修改到期时间；必须由管理员 Action 发起并审计 |
@@ -60,11 +64,11 @@
 | `external-account.provider.manage.update` | `externalAccountsAdmin.updateProvider` | 修改 Provider 名称、启用状态或线路套餐；必须由管理员 Action 发起并审计 |
 | `external-account.provider.manage.secret.rotate` | `externalAccountsAdmin.rotateProviderSecret` | 轮换 Provider Secret；新 Secret 只在本次响应出现；必须由管理员 Action 发起 |
 | `external-account.provider.manage.delete` | `externalAccountsAdmin.deleteProvider` | 删除无活动账号的 Provider；必须由管理员 Action 发起并审计 |
-| `external-account.provider.manage.reconcile` | `externalAccountsAdmin.reconcileProvider` | 触发宿主对当前 Provider 的账号生命周期核对；必须由管理员 Action 发起 |
-| `external-account.account.manage.read` | `externalAccountsAdmin.listAccounts` | 管理端读取外部账号台账摘要；必须由管理员 Action 发起 |
+| `external-account.provider.manage.reconcile` | `externalAccountsAdmin.reconcileProvider` | 触发宿主对当前 Provider 的账号生命周期核对；同 Provider 并发请求会合并，EA 429/超时/5xx 使用有界退避并保留审计；必须由管理员 Action 发起 |
+| `external-account.account.manage.read` | `externalAccountsAdmin.listAccounts` | 管理端分页读取外部账号台账摘要；必须由管理员 Action 发起 |
 | `external-account.account.manage.reconcile` | `externalAccountsAdmin.reconcileAccount` | 触发宿主核对一个外部账号的隐藏身份、EA 用户和线路状态 |
 | `external-account.account.manage.delete` | `externalAccountsAdmin.deleteAccount` | 删除一个 Provider 账号并保留审计台账；必须由管理员 Action 发起 |
-| `external-account.audit.read` | `externalAccountsAdmin.listAudits` | 读取当前外部账号接入审计；必须由管理员 Action 发起 |
+| `external-account.audit.read` | `externalAccountsAdmin.listAudits` | 分页、筛选读取当前外部账号接入审计；必须由管理员 Action 发起 |
 
 SDK 故意把 `self` 与 `any` 操作拆成不同方法，避免一个可选 `userId` 参数无意间扩大访问范围。插件 Runner 不会获得 Prisma、Express、环境变量、主程序文件、直接网络或 Node 内置模块入口。
 
@@ -79,3 +83,7 @@ SDK 故意把 `self` 与 `any` 操作拆成不同方法，避免一个可选 `us
 外部账号适配器还多一重资源绑定：能力调用不接受 `providerId` 参数，宿主只从本次
 API Key/HMAC 已认证请求注入 Provider，并再次核对 `adapterPluginId + adapterId`。
 因此即使插件猜到其他账号或 Provider ID，也不能跨接入读取或修改。
+
+积分变更另有宿主账本：`pluginId + idempotencyKey` 全局唯一。Runner 因超时重试时，
+同一请求仅返回原交易，不会重复扣款或重复发放；同一幂等键改变金额、用户或
+原因会返回 `PLUGIN_POINTS_IDEMPOTENCY_CONFLICT`。未签名插件不能获得任何积分能力。
