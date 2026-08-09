@@ -30,6 +30,39 @@ test('EmbyBoss adapter maps the normalized account without exposing ledger IDs',
   }])
 })
 
+test('EmbyBoss adapter preserves an omitted password during authentication', async () => {
+  let input: { name: unknown; password?: string } | undefined
+  const response = await handlers?.['authenticate-user'](request({
+    method: 'POST', body: { Username: 'alice' },
+  }), {
+    externalAccounts: {
+      authenticate: async (name: unknown, password?: string) => {
+        input = { name, password }
+        return { account, serverId: account.serverId }
+      },
+    },
+  } as never)
+  assert.equal(response?.status, 200)
+  assert.deepEqual(input, { name: 'alice', password: undefined })
+})
+
+test('EmbyBoss adapter does not convert ResetPassword into an empty password', async () => {
+  let getCalled = false
+  let setCalled = false
+  const response = await handlers?.['set-password'](request({
+    method: 'POST', params: { accountId: account.id }, body: { Id: account.id, ResetPassword: true },
+  }), {
+    externalAccounts: {
+      getAccount: async () => { getCalled = true; return account },
+      setPassword: async () => { setCalled = true; return { ok: true } },
+    },
+  } as never)
+  assert.equal(response?.status, 501)
+  assert.equal((response?.body as any).code, 'external_adapter_unsupported')
+  assert.equal(getCalled, false)
+  assert.equal(setCalled, false)
+})
+
 test('EmbyBoss adapter preserves query paging and case-insensitive fields', async () => {
   const response = await handlers?.['query-users'](request({
     query: { searchterm: 'LIC', startindex: '0', limit: '1' },

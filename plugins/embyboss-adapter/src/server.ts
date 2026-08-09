@@ -43,6 +43,13 @@ function empty(status = 204): ExternalAccountAdapterResponse {
   return { status }
 }
 
+function unsupported(message: string): ExternalAccountAdapterResponse {
+  return {
+    status: 501,
+    body: { Message: message, message, code: 'external_adapter_unsupported' },
+  }
+}
+
 function upstream(result: { status: number; contentType: string; body: unknown }): ExternalAccountAdapterResponse {
   return { status: result.status, headers: { 'content-type': result.contentType }, body: result.body }
 }
@@ -130,13 +137,15 @@ const handlers = {
   }),
 
   'set-password': handler(async (request, ctx) => {
+    const password = field(request.body, 'NewPw', 'Password', 'Pw')
+    if (field(request.body, 'ResetPassword') === true && password === undefined) {
+      return unsupported('当前 EM 宿主没有提供 ResetPassword 独立能力，不能安全地将其转换为空密码')
+    }
     const account = await ctx.externalAccounts.getAccount(request.params.accountId)
     const requestedId = field(request.body, 'Id')
     if (requestedId && String(requestedId) !== account.id) {
       return { status: 400, body: { Message: '请求中的用户 ID 与路径不一致' } }
     }
-    let password = field(request.body, 'NewPw', 'Password', 'Pw')
-    if (field(request.body, 'ResetPassword') === true && password === undefined) password = ''
     if (typeof password !== 'string') return { status: 400, body: { Message: 'NewPw 或 ResetPassword 必填' } }
     await ctx.externalAccounts.setPassword(account.id, password)
     return empty()
@@ -156,7 +165,7 @@ const handlers = {
     const password = field(request.body, 'Pw', 'Password')
     const result = await ctx.externalAccounts.authenticate(
       field(request.body, 'Username', 'Name'),
-      typeof password === 'string' ? password : '',
+      typeof password === 'string' ? password : undefined,
     )
     const mapped = user(result.account)
     return {
