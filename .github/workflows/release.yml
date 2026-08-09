@@ -87,7 +87,7 @@ jobs:
             exit 1
           fi
           git commit -m "chore(catalog): publish ${{ steps.metadata.outputs.tag }}"
-          release_branch="catalog-release/$TAG"
+          release_branch="catalog-release/$TAG-$GITHUB_RUN_ID"
           git switch -c "$release_branch"
           git push -u origin "$release_branch"
           commit_sha=$(git rev-parse HEAD)
