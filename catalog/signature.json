@@ -1,6 +1,6 @@
 {
   "algorithm": "Ed25519",
   "keyId": "emby-manager-official-2026-01",
-  "catalogDigest": "22d86e00dce2c4dcae21cb782b66cd9834a0cd382c0d37533a3f123051cdc538",
-  "signature": "Jc3etSBiiCyViTlVum1Mg0ZJMS1jQ6PFIC6KDIGYJ7R1wJnMjWaRJWspWXD4D/2PPY2NkOGH8d25j0iL23joBg=="
+  "catalogDigest": "d7d5476180c0108028e7ee1e823d3f56bb8c1c0795fa6cc68b9d5e61fa71ac94",
+  "signature": "v+1lcrAIRfuF0TrPwTJ6IYBKYzdL6gFyn+fI54kC5J3ZmfzbUowaxVbhik3+1IGAJHBcAQUqUxcFfNb5MdFaDQ=="
 }
