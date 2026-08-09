@@ -50,6 +50,7 @@
 | `scheduler.read` | `scheduler.list` | 仅本插件任务 |
 | `scheduler.write` | `scheduler.upsert/delete` | 仅本插件任务；事件必须预先声明为 `schedule.<name>` |
 | `external-account.provider.read` | `externalAccounts.getProvider` | 仅当前已通过 EM 鉴权且绑定本插件的 Provider；不返回密钥或 EA 地址 |
+| `external-account.provider.health.read` | `externalAccounts.getHealth` | 读取当前 Provider 的受控健康快照；只返回状态、检查时间、延迟、版本和安全错误摘要，不返回密钥或地址 |
 | `external-account.account.read` | `externalAccounts.listAccounts/getAccount` | 仅当前 Provider 的非删除账号；不返回内部用户、密码摘要或台账 ID |
 | `external-account.account.create` | `externalAccounts.createAccount` | 仅当前 Provider，通过 EM 创建隐藏身份、EA 用户和线路授权 |
 | `external-account.account.authenticate` | `externalAccounts.authenticate` | 仅验证当前 Provider 账号；不签发播放 Token |

@@ -43,6 +43,17 @@ function empty(status = 204): ExternalAccountAdapterResponse {
   return { status }
 }
 
+function providerUnavailable(message: string): ExternalAccountAdapterResponse {
+  return {
+    status: 503,
+    body: {
+      Message: message,
+      message,
+      code: 'external_account_provider_unavailable',
+    },
+  }
+}
+
 function upstream(result: { status: number; contentType: string; body: unknown }): ExternalAccountAdapterResponse {
   return { status: result.status, headers: { 'content-type': result.contentType }, body: result.body }
 }
@@ -83,6 +94,17 @@ const handlers = {
         OperatingSystemDisplayName: 'EM managed EA',
       },
     }
+  }),
+
+  'list-sessions': handler(async (_request, ctx) => {
+    const health = await ctx.externalAccounts.getHealth()
+    if (health.state !== 'online') {
+      return providerUnavailable(health.message || '当前 EmbyBoss Provider 健康检查未通过')
+    }
+    // The current host capability exposes reachability, not playback sessions.
+    // An empty list is an honest protocol fallback: EmbyBoss renders online/0
+    // instead of treating a reachable Provider as a disconnected server.
+    return { status: 200, body: [] }
   }),
 
   'list-libraries': handler(async (_request, ctx) => upstream(await ctx.externalAccounts.listLibraries())),

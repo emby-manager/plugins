@@ -18,6 +18,13 @@ const account = {
   configuration: { PlayDefaultAudioTrack: true, DisplayMissingEpisodes: false },
 }
 
+function health(overrides: Record<string, unknown> = {}) {
+  return {
+    state: 'online', checkedAt: '2000-01-01T00:00:00.000Z', latencyMs: 7, version: '1.0.0', message: null,
+    ...overrides,
+  }
+}
+
 test('EmbyBoss adapter maps the normalized account without exposing ledger IDs', async () => {
   const response = await handlers?.['list-users'](request(), {
     externalAccounts: { listAccounts: async () => [account] },
@@ -28,6 +35,22 @@ test('EmbyBoss adapter maps the normalized account without exposing ledger IDs',
     ServerId: 'ea-1', DateCreated: '2026-08-06T00:00:00.000Z',
     Policy: account.policy, Configuration: account.configuration,
   }])
+})
+
+test('EmbyBoss adapter returns an empty session list when provider health is online', async () => {
+  const response = await handlers?.['list-sessions'](request({ path: '/emby/Sessions' }), {
+    externalAccounts: { getHealth: async () => health() },
+  } as never)
+  assert.equal(response?.status, 200)
+  assert.deepEqual(response?.body, [])
+})
+
+test('EmbyBoss adapter preserves a provider health failure for the session fallback', async () => {
+  const response = await handlers?.['list-sessions'](request({ path: '/emby/Sessions' }), {
+    externalAccounts: { getHealth: async () => health({ state: 'offline', message: '健康检查失败' }) },
+  } as never)
+  assert.equal(response?.status, 503)
+  assert.equal((response?.body as any).code, 'external_account_provider_unavailable')
 })
 
 test('EmbyBoss adapter preserves query paging and case-insensitive fields', async () => {

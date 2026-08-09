@@ -108,6 +108,7 @@ const paid = await ctx.points.spend({
 | SDK | 用途 |
 | --- | --- |
 | `getProvider()` | 当前 Provider 与绑定服务器摘要 |
+| `getHealth()` | 当前 Provider 的受控健康快照；包含状态、检查时间、延迟、版本和安全错误摘要，不返回连接凭据 |
 | `listAccounts()` / `getAccount(accountId)` | 当前 Provider 账号快照 |
 | `createAccount({name, password?, expiresAt?, idempotencyKey?})` | 创建隐藏身份、EA 账号与线路授权 |
 | `authenticate(name, password?)` | 验证当前 Provider 账号，不签发播放 Token |

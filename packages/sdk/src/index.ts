@@ -39,6 +39,7 @@ export const PLUGIN_CAPABILITIES = [
   'scheduler.read',
   'scheduler.write',
   'external-account.provider.read',
+  'external-account.provider.health.read',
   'external-account.account.read',
   'external-account.account.create',
   'external-account.account.authenticate',
@@ -76,6 +77,16 @@ export interface ExternalAccountAdapterResponse {
   status: number
   headers?: Record<string, string>
   body?: unknown
+}
+
+export type ExternalProviderHealthState = 'online' | 'offline' | 'misconfigured'
+
+export interface ExternalProviderHealth {
+  state: ExternalProviderHealthState
+  checkedAt: string
+  latencyMs: number | null
+  version: string | null
+  message: string | null
 }
 
 export interface ExternalAccountSnapshot {
@@ -188,13 +199,7 @@ export interface ExternalAccountAdminProvider {
   secretPrefix: string
   lastUsedAt: string | null
   server: { id: string; name: string; isActive: boolean }
-  health?: {
-    state: 'online' | 'offline' | 'misconfigured'
-    checkedAt: string
-    latencyMs: number | null
-    version: string | null
-    message: string | null
-  }
+  health?: ExternalProviderHealth
   routePackage: { id: number; name: string } | null
   accountCounts: Record<string, number>
   reconcileStatus?: ExternalProviderReconcileResult | null
@@ -338,6 +343,7 @@ export interface PluginContext {
   }
   externalAccounts: {
     getProvider(): Promise<{ id: string; name: string; kind: string; server: { id: string; name: string } }>
+    getHealth(): Promise<ExternalProviderHealth>
     listAccounts(): Promise<ExternalAccountSnapshot[]>
     getAccount(accountId: string): Promise<ExternalAccountSnapshot>
     createAccount(input: {
