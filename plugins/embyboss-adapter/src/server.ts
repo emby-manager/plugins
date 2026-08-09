@@ -47,17 +47,32 @@ function upstream(result: { status: number; contentType: string; body: unknown }
   return { status: result.status, headers: { 'content-type': result.contentType }, body: result.body }
 }
 
+function invalidInput(message: string): ExternalAccountAdapterResponse {
+  return {
+    status: 400,
+    body: { Message: message, message, code: 'PLUGIN_CAPABILITY_INPUT_INVALID' },
+  }
+}
+
+function boundedStatus(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const status = Number(value)
+  return Number.isInteger(status) && status >= 400 && status <= 599 ? status : null
+}
+
 function failure(error: unknown): ExternalAccountAdapterResponse {
-  const source = error as { message?: unknown; code?: unknown; status?: unknown }
-  const status = Number(source?.status)
-  const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500
+  const source = error as { message?: unknown; code?: unknown; status?: unknown; upstreamStatus?: unknown }
+  const code = typeof source?.code === 'string' ? source.code : 'external_adapter_error'
+  const safeStatus = boundedStatus(source?.status)
+    ?? boundedStatus(source?.upstreamStatus)
+    ?? (code === 'PLUGIN_CAPABILITY_INPUT_INVALID' ? 400 : 500)
   const message = typeof source?.message === 'string' ? source.message : 'External account request failed'
   return {
     status: safeStatus,
     body: {
       Message: message,
       message,
-      code: typeof source?.code === 'string' ? source.code : 'external_adapter_error',
+      code,
     },
   }
 }
@@ -120,8 +135,12 @@ const handlers = {
   'create-user': handler(async (request, ctx) => {
     const expires = field(request.body, 'ExpiresAt', 'ExpiryDate')
     const password = field(request.body, 'Password', 'Pw', 'NewPw')
+    const name = field(request.body, 'Name', 'Username')
+    if (typeof name !== 'string' || name.length < 2 || name.length > 50) {
+      return invalidInput('用户名长度需要为 2-50 个字符')
+    }
     const result = await ctx.externalAccounts.createAccount({
-      name: field(request.body, 'Name', 'Username'),
+      name,
       password: typeof password === 'string' ? password : undefined,
       expiresAt: expires == null ? null : String(expires),
       idempotencyKey: request.requestId,
