@@ -11,57 +11,54 @@ permissions:
 jobs:
   scope:
     name: Single plugin scope
+    # 仓库公开且接受外部投稿。即使本任务不检出 PR 代码，也不向公开仓库开放
+    # 长期在线的组织 Runner，防止 fork 自行修改工作流后请求自托管标签。
     runs-on: ubuntu-latest
     steps:
       - name: Reject changes outside one plugin directory
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
-          mapfile -t changed_paths < <(
-            gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" \
-              --jq '.[] | .filename, (.previous_filename // empty)'
-          )
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+            const changedPaths = files.flatMap((file) =>
+              [file.filename, file.previous_filename].filter(Boolean),
+            );
+            const pluginDirectories = new Set();
+            let outsidePluginCount = 0;
 
-          declare -A plugin_directories=()
-          changed_count=0
-          outside_plugin_count=0
+            for (const changedPath of changedPaths) {
+              const match = changedPath.match(/^plugins\/([^/]+)\/.+$/);
+              if (match) pluginDirectories.add(match[1]);
+              else outsidePluginCount += 1;
+            }
 
-          for changed_path in "${changed_paths[@]}"; do
-            [[ -n "$changed_path" ]] || continue
-            changed_count=$((changed_count + 1))
-            if [[ "$changed_path" =~ ^plugins/([^/]+)/.+$ ]]; then
-              plugin_directories["${BASH_REMATCH[1]}"]=1
-            else
-              outside_plugin_count=$((outside_plugin_count + 1))
-            fi
-          done
+            if (changedPaths.length === 0) {
+              core.setFailed('The PR does not contain any changed files.');
+              return;
+            }
+            if (pluginDirectories.size > 1) {
+              core.setFailed(`A PR may modify at most one plugins/<plugin>/ directory; found ${pluginDirectories.size}.`);
+              return;
+            }
+            if (pluginDirectories.size === 1) {
+              if (outsidePluginCount > 0) {
+                core.setFailed('Plugin PRs may not modify files outside their single plugins/<plugin>/ directory.');
+                return;
+              }
+              core.info(`Accepted plugin directory: ${[...pluginDirectories].join(', ')}`);
+              return;
+            }
 
-          if (( changed_count == 0 )); then
-            echo "::error::The PR does not contain any changed files."
-            exit 1
-          fi
-          if (( ${#plugin_directories[@]} > 1 )); then
-            echo "::error::A PR may modify at most one plugins/<plugin>/ directory; found ${#plugin_directories[@]}."
-            exit 1
-          fi
-
-          if (( ${#plugin_directories[@]} == 1 )); then
-            if (( outside_plugin_count > 0 )); then
-              echo "::error::Plugin PRs may not modify files outside their single plugins/<plugin>/ directory."
-              exit 1
-            fi
-            echo "Accepted plugin directory: ${!plugin_directories[*]}"
-            exit 0
-          fi
-
-          if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" || ! "$HEAD_BRANCH" =~ ^maintenance/ ]]; then
-            echo "::error::Repository infrastructure changes require an in-repository maintenance/* branch."
-            exit 1
-          fi
-
-          echo "Accepted maintainer infrastructure PR: $HEAD_BRANCH"
+            if (
+              pullRequest.head.repo.full_name !== context.payload.repository.full_name
+              || !pullRequest.head.ref.startsWith('maintenance/')
+            ) {
+              core.setFailed('Repository infrastructure changes require an in-repository maintenance/* branch.');
+              return;
+            }
+            core.info(`Accepted maintainer infrastructure PR: ${pullRequest.head.ref}`);

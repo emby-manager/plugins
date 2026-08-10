@@ -10,10 +10,12 @@ permissions:
 
 jobs:
   validate:
+    # 公开仓库的 fork 可以修改工作流本身，因此所有插件任务都使用一次性的
+    # GitHub 托管环境；静态自托管 Runner 只服务私有 EM / EA 仓库。
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 24.10.0
           cache: npm
@@ -21,7 +23,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run validate
       - run: npm audit --omit=dev --audit-level=high
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: validated-plugin-packages
           path: dist/*.emp
