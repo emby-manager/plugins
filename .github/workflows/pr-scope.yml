@@ -11,9 +11,9 @@ permissions:
 jobs:
   scope:
     name: Single plugin scope
-    # pull_request_target 只读取文件清单，不检出或执行投稿者代码，因此可以
-    # 安全地使用长期在线的组织 Runner。
-    runs-on: [self-hosted, Linux, X64]
+    # 仓库公开且接受外部投稿。即使本任务不检出 PR 代码，也不向公开仓库开放
+    # 长期在线的组织 Runner，防止 fork 自行修改工作流后请求自托管标签。
+    runs-on: ubuntu-latest
     steps:
       - name: Reject changes outside one plugin directory
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
