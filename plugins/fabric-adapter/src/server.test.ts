@@ -53,6 +53,23 @@ test('Fabric adapter forwards create idempotency only through the host capabilit
   assert.deepEqual(input, { name: 'alice', password: 'secret', expiresAt: null, idempotencyKey: 'request-1' })
 })
 
+test('Fabric adapter preserves the official ResetPassword clearing semantics', async () => {
+  let nextPassword: string | undefined
+  const response = await handlers?.['set-password'](request({
+    method: 'POST', params: { accountId: account.id }, body: { ResetPassword: true },
+  }), {
+    externalAccounts: {
+      getAccount: async () => account,
+      setPassword: async (_accountId: string, password: string) => {
+        nextPassword = password
+        return { ok: true }
+      },
+    },
+  } as never)
+  assert.equal(response?.status, 204)
+  assert.equal(nextPassword, '')
+})
+
 test('Fabric adapter converts denied host capabilities into bounded protocol errors', async () => {
   const denied = Object.assign(new Error('插件没有获得 external-account.account.read 权限'), {
     code: 'PLUGIN_CAPABILITY_DENIED', status: 403,

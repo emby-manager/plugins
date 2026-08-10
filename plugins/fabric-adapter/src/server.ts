@@ -136,6 +136,8 @@ const handlers = {
       return { status: 400, body: { Message: '请求中的用户 ID 与路径不一致' } }
     }
     let password = field(request.body, 'NewPw', 'Password', 'Pw')
+    // Official Emby semantics: ResetPassword without NewPw clears the
+    // password. Keep Fabric's compatible surface identical to EmbyBoss.
     if (field(request.body, 'ResetPassword') === true && password === undefined) password = ''
     if (typeof password !== 'string') return { status: 400, body: { Message: 'NewPw 或 ResetPassword 必填' } }
     await ctx.externalAccounts.setPassword(account.id, password)
@@ -156,7 +158,7 @@ const handlers = {
     const password = field(request.body, 'Pw', 'Password')
     const result = await ctx.externalAccounts.authenticate(
       field(request.body, 'Username', 'Name'),
-      typeof password === 'string' ? password : '',
+      typeof password === 'string' ? password : undefined,
     )
     const mapped = user(result.account)
     return {
