@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-10T10:03:31.405Z",
+  "generatedAt": "2026-08-10T10:04:12.200Z",
   "plugins": [
     {
       "id": "dev.emby-manager.hello-world",
@@ -115,6 +115,17 @@
       "author": "Emby Manager",
       "repository": "https://github.com/emby-manager/plugins",
       "versions": [
+        {
+          "version": "2.2.2",
+          "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/io.emby-manager.adapter.fabric-v2.2.2/io.emby-manager.adapter.fabric-2.2.2.emp",
+          "packageDigest": "1833983986c1a45060f8aad07de71f3909f97a2c6c9cee5a35045caed82e45b4",
+          "keyId": "emby-manager-official-2026-01",
+          "engines": {
+            "embyManager": ">=0.1.9.4 <0.2.0",
+            "node": ">=24"
+          },
+          "publishedAt": "2026-08-10T10:04:12.193Z"
+        },
         {
           "version": "2.2.1",
           "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/io.emby-manager.adapter.fabric-v2.2.1/io.emby-manager.adapter.fabric-2.2.1.emp",
