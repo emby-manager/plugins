@@ -53,6 +53,61 @@ test('EmbyBoss adapter forwards create idempotency only through the host capabil
   assert.deepEqual(input, { name: 'alice', password: 'secret', expiresAt: null, idempotencyKey: 'request-1' })
 })
 
+test('EmbyBoss adapter rejects invalid usernames before calling the host', async () => {
+  let called = false
+  const response = await handlers?.['create-user'](request({
+    method: 'POST', body: { username: 'a', pw: 'secret' }, requestId: 'request-invalid',
+  }), {
+    externalAccounts: {
+      createAccount: async () => { called = true; return { account, created: true } },
+    },
+  } as never)
+  assert.equal(response?.status, 400)
+  assert.equal((response?.body as any).code, 'PLUGIN_CAPABILITY_INPUT_INVALID')
+  assert.equal(called, false)
+})
+
+test('EmbyBoss adapter preserves the standard ResetPassword semantics', async () => {
+  let nextPassword: string | undefined
+  const response = await handlers?.['set-password'](request({
+    method: 'POST', params: { accountId: account.id }, body: { ResetPassword: true },
+  }), {
+    externalAccounts: {
+      getAccount: async () => account,
+      setPassword: async (_accountId: string, password: string) => {
+        nextPassword = password
+        return { ok: true }
+      },
+    },
+  } as never)
+  assert.equal(response?.status, 204)
+  assert.equal(nextPassword, '')
+})
+
+test('EmbyBoss adapter exposes provider connectivity without fabricating playback sessions', async () => {
+  const online = await handlers?.['list-sessions'](request(), {
+    externalAccounts: {
+      getHealth: async () => ({
+        state: 'online', checkedAt: '2026-08-10T00:00:00.000Z', latencyMs: 12,
+        version: 'v0.1.9.5', message: null,
+      }),
+    },
+  } as never)
+  assert.equal(online?.status, 200)
+  assert.deepEqual(online?.body, [])
+
+  const offline = await handlers?.['list-sessions'](request(), {
+    externalAccounts: {
+      getHealth: async () => ({
+        state: 'offline', checkedAt: '2026-08-10T00:00:00.000Z', latencyMs: null,
+        version: null, message: 'connection refused',
+      }),
+    },
+  } as never)
+  assert.equal(offline?.status, 503)
+  assert.equal((offline?.body as any).code, 'EXTERNAL_PROVIDER_UNAVAILABLE')
+})
+
 test('EmbyBoss adapter converts denied host capabilities into bounded protocol errors', async () => {
   const denied = Object.assign(new Error('插件没有获得 external-account.account.read 权限'), {
     code: 'PLUGIN_CAPABILITY_DENIED', status: 403,
@@ -62,4 +117,18 @@ test('EmbyBoss adapter converts denied host capabilities into bounded protocol e
   } as never)
   assert.equal(response?.status, 403)
   assert.equal((response?.body as any).code, 'PLUGIN_CAPABILITY_DENIED')
+})
+
+test('EmbyBoss adapter preserves rate-limit status and Retry-After', async () => {
+  const limited = Object.assign(new Error('HTTP 429: rate limited'), {
+    upstreamStatus: 429,
+    retryAfterMs: 7_000,
+  })
+  const response = await handlers?.['list-users'](request(), {
+    externalAccounts: { listAccounts: async () => { throw limited } },
+  } as never)
+  assert.equal(response?.status, 429)
+  assert.deepEqual(response?.headers, { 'retry-after': '7' })
+  assert.equal((response?.body as any).code, 'EXTERNAL_ACCOUNT_RATE_LIMITED')
+  assert.equal((response?.body as any).retryable, true)
 })

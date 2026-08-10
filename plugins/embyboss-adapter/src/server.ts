@@ -47,17 +47,77 @@ function upstream(result: { status: number; contentType: string; body: unknown }
   return { status: result.status, headers: { 'content-type': result.contentType }, body: result.body }
 }
 
+function invalidInput(message: string): ExternalAccountAdapterResponse {
+  return { status: 400, body: { Message: message, message, code: 'PLUGIN_CAPABILITY_INPUT_INVALID' } }
+}
+
+type FailureSource = {
+  message?: unknown
+  code?: unknown
+  status?: unknown
+  upstreamStatus?: unknown
+  retryAfter?: unknown
+  retryAfterMs?: unknown
+  retryAfterSeconds?: unknown
+  retry_after?: unknown
+  headers?: unknown
+}
+
+function boundedStatus(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  const status = Number(value)
+  return Number.isInteger(status) && status >= 400 && status <= 599 ? status : null
+}
+
+function statusFromMessage(value: unknown): number | null {
+  if (typeof value !== 'string') return null
+  return boundedStatus(value.trim().match(/^HTTP\s+([45]\d{2})(?:\s|:|$)/i)?.[1])
+}
+
+function headerValue(headers: unknown, name: string): unknown {
+  if (!headers || typeof headers !== 'object' || Array.isArray(headers)) return undefined
+  return Object.entries(headers as Record<string, unknown>)
+    .find(([key]) => key.toLocaleLowerCase('en-US') === name.toLocaleLowerCase('en-US'))?.[1]
+}
+
+function boundedRetryAfter(source: FailureSource): string | null {
+  const raw = source.retryAfterSeconds
+    ?? (typeof source.retryAfterMs === 'number' ? Math.ceil(source.retryAfterMs / 1000) : undefined)
+    ?? source.retryAfter
+    ?? source.retry_after
+    ?? headerValue(source.headers, 'retry-after')
+  if (typeof raw !== 'number' && typeof raw !== 'string') return null
+  const text = String(raw).trim()
+  if (!/^\d{1,5}$/.test(text)) return null
+  const seconds = Number(text)
+  return Number.isSafeInteger(seconds) && seconds >= 0 && seconds <= 86_400 ? String(seconds) : null
+}
+
+function failureCode(status: number, sourceCode: unknown): string {
+  if (typeof sourceCode === 'string' && sourceCode.trim()) return sourceCode
+  if (status === 401) return 'EXTERNAL_ACCOUNT_AUTHENTICATION_FAILED'
+  if (status === 403) return 'EXTERNAL_ACCOUNT_FORBIDDEN'
+  if (status === 429) return 'EXTERNAL_ACCOUNT_RATE_LIMITED'
+  return 'external_adapter_error'
+}
+
 function failure(error: unknown): ExternalAccountAdapterResponse {
-  const source = error as { message?: unknown; code?: unknown; status?: unknown }
-  const status = Number(source?.status)
-  const safeStatus = Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500
-  const message = typeof source?.message === 'string' ? source.message : 'External account request failed'
+  const source = (error && typeof error === 'object' ? error : {}) as FailureSource
+  const message = typeof source.message === 'string' ? source.message : 'External account request failed'
+  const sourceCode = typeof source.code === 'string' ? source.code : undefined
+  const safeStatus = boundedStatus(source.status)
+    ?? boundedStatus(source.upstreamStatus)
+    ?? statusFromMessage(message)
+    ?? (sourceCode === 'PLUGIN_CAPABILITY_INPUT_INVALID' ? 400 : 500)
+  const retryAfter = safeStatus === 429 ? boundedRetryAfter(source) : null
   return {
     status: safeStatus,
+    ...(retryAfter ? { headers: { 'retry-after': retryAfter } } : {}),
     body: {
       Message: message,
       message,
-      code: typeof source?.code === 'string' ? source.code : 'external_adapter_error',
+      code: failureCode(safeStatus, sourceCode),
+      retryable: safeStatus === 429 || safeStatus >= 500,
     },
   }
 }
@@ -83,6 +143,24 @@ const handlers = {
         OperatingSystemDisplayName: 'EM managed EA',
       },
     }
+  }),
+
+  'list-sessions': handler(async (_request, ctx) => {
+    const health = await ctx.externalAccounts.getHealth()
+    if (health.state !== 'online') {
+      return {
+        status: 503,
+        body: {
+          Message: health.message || 'EA 当前不可用',
+          message: health.message || 'EA 当前不可用',
+          code: 'EXTERNAL_PROVIDER_UNAVAILABLE',
+          health,
+        },
+      }
+    }
+    // EmbyBoss currently uses /Sessions as a connectivity probe. Returning a
+    // valid empty list is explicit degradation, not fabricated playback data.
+    return { status: 200, body: [] }
   }),
 
   'list-libraries': handler(async (_request, ctx) => upstream(await ctx.externalAccounts.listLibraries())),
@@ -120,8 +198,12 @@ const handlers = {
   'create-user': handler(async (request, ctx) => {
     const expires = field(request.body, 'ExpiresAt', 'ExpiryDate')
     const password = field(request.body, 'Password', 'Pw', 'NewPw')
+    const name = field(request.body, 'Name', 'Username')
+    if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 50) {
+      return invalidInput('用户名长度需要为 2-50 个字符')
+    }
     const result = await ctx.externalAccounts.createAccount({
-      name: field(request.body, 'Name', 'Username'),
+      name: name.trim(),
       password: typeof password === 'string' ? password : undefined,
       expiresAt: expires == null ? null : String(expires),
       idempotencyKey: request.requestId,
@@ -156,7 +238,7 @@ const handlers = {
     const password = field(request.body, 'Pw', 'Password')
     const result = await ctx.externalAccounts.authenticate(
       field(request.body, 'Username', 'Name'),
-      typeof password === 'string' ? password : '',
+      typeof password === 'string' ? password : undefined,
     )
     const mapped = user(result.account)
     return {
