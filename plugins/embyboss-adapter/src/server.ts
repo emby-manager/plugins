@@ -218,8 +218,11 @@ const handlers = {
       return { status: 400, body: { Message: '请求中的用户 ID 与路径不一致' } }
     }
     let password = field(request.body, 'NewPw', 'Password', 'Pw')
+    // Official Emby semantics: ResetPassword without NewPw clears the
+    // password. Verified against the local official Emby reference server;
+    // EmbyBoss relies on this request before its second NewPw request.
     if (field(request.body, 'ResetPassword') === true && password === undefined) password = ''
-    if (typeof password !== 'string') return { status: 400, body: { Message: 'NewPw 或 ResetPassword 必填' } }
+    if (typeof password !== 'string') return invalidInput('NewPw 或 ResetPassword 必填')
     await ctx.externalAccounts.setPassword(account.id, password)
     return empty()
   }),

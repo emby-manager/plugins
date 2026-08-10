@@ -67,7 +67,7 @@ test('EmbyBoss adapter rejects invalid usernames before calling the host', async
   assert.equal(called, false)
 })
 
-test('EmbyBoss adapter preserves the standard ResetPassword semantics', async () => {
+test('EmbyBoss adapter preserves the official ResetPassword clearing semantics', async () => {
   let nextPassword: string | undefined
   const response = await handlers?.['set-password'](request({
     method: 'POST', params: { accountId: account.id }, body: { ResetPassword: true },
@@ -82,6 +82,23 @@ test('EmbyBoss adapter preserves the standard ResetPassword semantics', async ()
   } as never)
   assert.equal(response?.status, 204)
   assert.equal(nextPassword, '')
+})
+
+test('EmbyBoss adapter passes pure-letter passwords through unchanged', async () => {
+  let nextPassword: string | undefined
+  const response = await handlers?.['set-password'](request({
+    method: 'POST', params: { accountId: account.id }, body: { NewPw: 'lettersOnly' },
+  }), {
+    externalAccounts: {
+      getAccount: async () => account,
+      setPassword: async (_accountId: string, password: string) => {
+        nextPassword = password
+        return { ok: true }
+      },
+    },
+  } as never)
+  assert.equal(response?.status, 204)
+  assert.equal(nextPassword, 'lettersOnly')
 })
 
 test('EmbyBoss adapter exposes provider connectivity without fabricating playback sessions', async () => {
