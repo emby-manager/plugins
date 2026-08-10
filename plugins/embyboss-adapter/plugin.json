@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "io.emby-manager.adapter.embyboss",
   "name": "EmbyBoss 外部账号适配器",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "apiVersion": "2",
   "description": "将 Sakura EmbyBoss 的 Emby 账号管理协议安全映射到 EM 托管的 EA 账号生命周期。",
   "author": "Emby Manager",
@@ -37,6 +37,8 @@
   ],
   "actions": [
     { "name": "load-admin", "title": "读取 EmbyBoss 接入", "access": "admin", "timeoutMs": 30000 },
+    { "name": "load-accounts", "title": "读取 EmbyBoss 账号", "access": "admin", "timeoutMs": 30000 },
+    { "name": "load-audits", "title": "读取 EmbyBoss 审计", "access": "admin", "timeoutMs": 30000 },
     { "name": "create-provider", "title": "创建 EmbyBoss 接入", "access": "admin", "timeoutMs": 30000 },
     { "name": "manage-provider", "title": "管理 EmbyBoss 接入", "access": "admin", "timeoutMs": 30000 },
     { "name": "manage-account", "title": "管理 EmbyBoss 账号", "access": "admin", "timeoutMs": 30000 }
