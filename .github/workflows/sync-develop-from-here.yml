@@ -15,7 +15,7 @@ concurrency:
 jobs:
   sync:
     if: github.repository == 'emby-manager/plugins' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, Linux, X64, PVE]
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

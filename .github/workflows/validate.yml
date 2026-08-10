@@ -12,7 +12,7 @@ jobs:
   validate:
     # 同仓库分支和 main 使用自托管 Runner；公开仓库的 fork PR 会执行投稿代码，
     # 必须留在一次性的 GitHub 托管环境，不能接触长期在线的组织主机。
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'PVE' }}
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && '["ubuntu-latest"]' || '["self-hosted","Linux","X64"]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

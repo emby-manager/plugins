@@ -13,7 +13,7 @@ jobs:
     name: Single plugin scope
     # pull_request_target 只读取文件清单，不检出或执行投稿者代码，因此可以
     # 安全地使用长期在线的组织 Runner。
-    runs-on: [self-hosted, Linux, X64, PVE]
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Reject changes outside one plugin directory
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
