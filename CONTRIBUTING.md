@@ -9,6 +9,8 @@
 - 一个 GitHub fork；
 - 对计划使用的 [能力](docs/capabilities.md) 和 [安全边界](docs/security.md) 有基本了解。
 
+仓库同时提供 Codex 项目 Skill：`.codex/skills/develop-emby-manager-plugin/`。在仓库中使用 Codex 开发或审核插件时，可直接调用 `$develop-emby-manager-plugin`；它会先核对能力声明、安全边界和单插件 PR 范围，再执行构建与验证。
+
 插件不能通过依赖 EM 内部源码、数据库表或构建产物来实现功能。若现有 SDK 缺少必要能力，请先开 Issue 描述用例、所需数据、期望写操作和最小权限边界；不要在插件中绕过宿主接口。
 
 ## 轻量拉取

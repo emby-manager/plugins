@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop Emby Manager Plugin"
+  short_description: "Build and validate least-privilege EM plugins"
+  default_prompt: "Use $develop-emby-manager-plugin to create or update one secure Emby Manager plugin."
