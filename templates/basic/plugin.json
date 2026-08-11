@@ -10,6 +10,26 @@
   "engines": { "embyManager": ">=0.1.9.4 <0.2.0", "node": ">=24" },
   "entrypoints": { "server": "src/server.ts" },
   "capabilities": ["storage.kv.read", "storage.kv.write", "user.profile.self.read"],
+  "runtime": { "memoryMb": 96, "maxConcurrentInvocations": 4, "storageMb": 16 },
+  "agentTools": [
+    {
+      "name": "dev.example.my-plugin.last-greeting",
+      "title": "Read last greeting",
+      "description": "Read the last greeting timestamp from plugin-owned storage.",
+      "handler": "read-last-greeting",
+      "access": "admin",
+      "executionMode": "READ_ONLY",
+      "systemOfRecord": "PLUGIN",
+      "requiredCapabilities": ["storage.kv.read"],
+      "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lastGreetingAt"],
+        "properties": { "lastGreetingAt": { "type": ["string", "null"] } }
+      }
+    }
+  ],
   "actions": [{ "name": "hello", "title": "Say hello", "access": "user" }],
   "pages": [{ "id": "dashboard", "path": "/plugins/my-plugin", "title": "My Plugin", "location": "user", "schema": "ui/dashboard.json" }],
   "defaultConfig": { "greeting": "Hello" }

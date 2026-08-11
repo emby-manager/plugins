@@ -36,6 +36,7 @@ export const PLUGIN_CAPABILITIES = [
   'notification.broadcast.send',
   'network.read',
   'network.write',
+  'network.secret.use',
   'scheduler.read',
   'scheduler.write',
   'external-account.provider.read',
@@ -62,6 +63,32 @@ export const PLUGIN_CAPABILITIES = [
 ] as const
 
 export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number]
+
+export interface PluginNetworkResponse {
+  status: number
+  ok: boolean
+  headers: Record<string, string>
+  body: string
+}
+
+export interface PluginEventEnvelope<T = Record<string, unknown>> {
+  specversion: '1.0'
+  id: string
+  source: string
+  type: string
+  subject?: string
+  time: string
+  datacontenttype: 'application/json'
+  dataschema?: string
+  tenantId: string
+  correlationId: string
+  causationId?: string
+  resourceVersion?: string
+  traceparent?: string
+  tracestate?: string
+  /** Contains only dataFields explicitly declared by this subscription. */
+  data: T
+}
 
 export interface ExternalAccountAdapterRequest {
   method: string
@@ -283,9 +310,18 @@ export interface PluginContext {
     delete(key: string): Promise<{ deleted: boolean }>
   }
   secrets: {
+    /** @deprecated Direct secret reads are denied by current hosts. Use fetch(). */
     get(key: string): Promise<string | null>
     set(key: string, value: string): Promise<{ ok: true }>
     delete(key: string): Promise<{ deleted: boolean }>
+    /** Host injects the configured scope into an outbound request; the plaintext never enters this process. */
+    fetch(input: {
+      scope: string
+      url: string
+      method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+      headers?: Record<string, string>
+      body?: unknown
+    }): Promise<PluginNetworkResponse>
   }
   users: {
     getMyProfile(): Promise<unknown>
@@ -326,7 +362,7 @@ export interface PluginContext {
     sendToUser(userId: number, input: { title: string; message: string }): Promise<{ ok: true }>
     sendToAll(input: { title: string; message: string }): Promise<{ ok: true; recipientCount: number }>
   }
-  network: { fetch(input: { url: string; method?: string; headers?: Record<string, string>; body?: unknown }): Promise<{ status: number; ok: boolean; headers: Record<string, string>; body: string }> }
+  network: { fetch(input: { url: string; method?: string; headers?: Record<string, string>; body?: unknown }): Promise<PluginNetworkResponse> }
   scheduler: {
     list(): Promise<Array<{
       name: string
@@ -417,6 +453,18 @@ export interface PluginDefinition {
   deactivate?(context: PluginContext): void | Promise<void>
   actions?: Record<string, (input: any, context: PluginContext) => unknown | Promise<unknown>>
   hooks?: Record<string, (payload: any, context: PluginContext) => void | Promise<void>>
+  /** Handlers are keyed by the manifest handler field, not by display title. */
+  agentTools?: Record<string, (input: any, context: PluginContext) => unknown | Promise<unknown>>
+  /** Durable deliveries are at-least-once. Handlers must deduplicate by envelope.id. */
+  eventSubscriptions?: Record<string, (
+    event: PluginEventEnvelope,
+    context: PluginContext,
+  ) => unknown | Promise<unknown>>
+  providers?: Record<string, {
+    operations: Record<string, (input: any, context: PluginContext) => unknown | Promise<unknown>>
+  }>
+  /** Activities return data only. Workflow state, retry and transitions remain host-owned. */
+  workflowActivities?: Record<string, (input: any, context: PluginContext) => unknown | Promise<unknown>>
   externalAccountAdapters?: Record<string, {
     handlers: Record<string, (
       request: ExternalAccountAdapterRequest,

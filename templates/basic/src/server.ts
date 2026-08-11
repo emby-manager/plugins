@@ -11,4 +11,10 @@ export default definePlugin({
       return { profile, message: String(ctx.config.greeting || 'Hello') }
     },
   },
+  agentTools: {
+    async 'read-last-greeting'(_input, ctx) {
+      const record = await ctx.storage.get('lastGreetingAt')
+      return { lastGreetingAt: typeof record?.value === 'string' ? record.value : null }
+    },
+  },
 })

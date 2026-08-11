@@ -70,6 +70,18 @@ function validateManifest(input: unknown): void {
   ) {
     throw new Error('network.read/network.write requires network.allowedHosts')
   }
+  if (manifest.capabilities.includes('network.secret.use') !== Boolean(manifest.secretScopes?.length)) {
+    throw new Error('network.secret.use and secretScopes must be declared together')
+  }
+  const needsServer = Boolean(
+    manifest.externalAccountAdapters?.length
+    || manifest.eventSubscriptions?.length
+    || manifest.agentTools?.length
+    || manifest.providers?.length
+    || manifest.workflowActivities?.length
+    || manifest.workflowTemplates?.length,
+  )
+  if (needsServer && !manifest.entrypoints?.server) throw new Error('server extensions require a server entrypoint')
   if (manifest.externalAccountAdapters?.length && !manifest.entrypoints?.server) {
     throw new Error('externalAccountAdapters requires a server entrypoint')
   }
@@ -78,6 +90,53 @@ function validateManifest(input: unknown): void {
   for (const adapter of manifest.externalAccountAdapters || []) {
     const routes = adapter.routes.map((route: any) => `${route.method} ${adapter.basePath}${route.path}`)
     if (new Set(routes).size !== routes.length) throw new Error(`external account adapter ${adapter.id} has duplicate routes`)
+  }
+  const extensionSchemas: Array<[string, Record<string, unknown>]> = []
+  for (const tool of manifest.agentTools || []) {
+    if (!tool.name.startsWith(`${manifest.id}.`)) throw new Error(`agent tool ${tool.name} must use plugin ID namespace`)
+    const missing = tool.requiredCapabilities.filter((capability: string) => !manifest.capabilities.includes(capability))
+    if (missing.length) throw new Error(`agent tool ${tool.name} uses undeclared capabilities: ${missing.join(', ')}`)
+    extensionSchemas.push([`${tool.name}.inputSchema`, tool.inputSchema], [`${tool.name}.outputSchema`, tool.outputSchema])
+  }
+  for (const provider of manifest.providers || []) {
+    const operations = provider.operations.map((operation: any) => operation.name)
+    if (new Set(operations).size !== operations.length) throw new Error(`provider ${provider.id} operations must be unique`)
+    for (const operation of provider.operations) {
+      const missing = operation.requiredCapabilities.filter((capability: string) => !manifest.capabilities.includes(capability))
+      if (missing.length) throw new Error(`provider ${provider.id}.${operation.name} uses undeclared capabilities: ${missing.join(', ')}`)
+      extensionSchemas.push([`${provider.id}.${operation.name}.inputSchema`, operation.inputSchema], [`${provider.id}.${operation.name}.outputSchema`, operation.outputSchema])
+    }
+  }
+  for (const activity of manifest.workflowActivities || []) {
+    const missing = activity.requiredCapabilities.filter((capability: string) => !manifest.capabilities.includes(capability))
+    if (missing.length) throw new Error(`workflow activity ${activity.name} uses undeclared capabilities: ${missing.join(', ')}`)
+    extensionSchemas.push([`${activity.name}.inputSchema`, activity.inputSchema], [`${activity.name}.outputSchema`, activity.outputSchema])
+  }
+  const activities = new Set((manifest.workflowActivities || []).map((activity: any) => activity.name))
+  for (const template of manifest.workflowTemplates || []) {
+    const keys = template.steps.map((step: any) => step.key)
+    if (new Set(keys).size !== keys.length || template.steps.some((step: any) => !activities.has(step.activity))) {
+      throw new Error(`workflow template ${template.id} has duplicate steps or unknown activities`)
+    }
+    extensionSchemas.push([`${template.id}.inputSchema`, template.inputSchema])
+  }
+  for (const [name, schema] of extensionSchemas) {
+    try {
+      assertSafeConfigSchema(schema)
+      new Ajv2020({ allErrors: true, strict: true }).compile(schema)
+    } catch (error) {
+      throw new Error(`${name} is invalid: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  for (const [name, values] of [
+    ['event subscription types', (manifest.eventSubscriptions || []).map((item: any) => item.type)],
+    ['agent tools', (manifest.agentTools || []).map((item: any) => item.name)],
+    ['providers', (manifest.providers || []).map((item: any) => item.id)],
+    ['workflow activities', (manifest.workflowActivities || []).map((item: any) => item.name)],
+    ['workflow templates', (manifest.workflowTemplates || []).map((item: any) => `${item.id}@${item.version}`)],
+    ['secret scopes', (manifest.secretScopes || []).map((item: any) => item.name)],
+  ] as Array<[string, string[]]>) {
+    if (new Set(values).size !== values.length) throw new Error(`${name} must be unique`)
   }
   if (manifest.configSchema) {
     assertSafeConfigSchema(manifest.configSchema)
@@ -326,16 +385,53 @@ async function addCatalogEntry(archive: string, downloadUrl: string): Promise<vo
   await fsp.writeFile(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`)
 }
 
+function validateRevocations(value: any): void {
+  if (
+    !value
+    || value.schemaVersion !== 1
+    || typeof value.updatedAt !== 'string'
+    || Number.isNaN(Date.parse(value.updatedAt))
+    || !Array.isArray(value.packages)
+    || value.packages.length > 10_000
+    || !Array.isArray(value.publisherKeys)
+    || value.publisherKeys.length > 0
+  ) {
+    throw new Error('catalog revocation list is invalid')
+  }
+  const digests = new Set<string>()
+  for (const record of value.packages) {
+    if (
+      !record
+      || typeof record !== 'object'
+      || !/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/.test(String(record.pluginId || ''))
+      || !/^[a-f0-9]{64}$/.test(String(record.packageDigest || ''))
+      || typeof record.revokedAt !== 'string'
+      || Number.isNaN(Date.parse(record.revokedAt))
+      || typeof record.reason !== 'string'
+      || !record.reason.trim()
+      || record.reason.trim().length > 1_000
+      || digests.has(record.packageDigest)
+    ) {
+      throw new Error('catalog package revocation is invalid or duplicated')
+    }
+    digests.add(record.packageDigest)
+  }
+}
+
 async function signCatalog(): Promise<void> {
   const privateKeyText = process.env.EM_PLUGIN_SIGNING_KEY
   const keyId = process.env.EM_PLUGIN_SIGNING_KEY_ID
   if (!privateKeyText || !keyId) throw new Error('catalog signing requires EM_PLUGIN_SIGNING_KEY and EM_PLUGIN_SIGNING_KEY_ID')
   const catalogPath = path.join(root, 'catalog/index.json')
   const catalog = JSON.parse(await fsp.readFile(catalogPath, 'utf8'))
+  const revocations = JSON.parse(await fsp.readFile(path.join(root, 'catalog/revoked.json'), 'utf8'))
+  validateRevocations(revocations)
   const catalogDigest = digest(canonicalJson(catalog))
-  const signature = crypto.sign(null, Buffer.from(catalogDigest, 'hex'), crypto.createPrivateKey(privateKeyText))
+  const revocationsDigest = digest(canonicalJson(revocations))
+  const signedDigest = digest(canonicalJson({ catalogDigest, revocationsDigest }))
+  const signature = crypto.sign(null, Buffer.from(signedDigest, 'hex'), crypto.createPrivateKey(privateKeyText))
   await fsp.writeFile(path.join(root, 'catalog/signature.json'), `${JSON.stringify({
-    algorithm: 'Ed25519', keyId, catalogDigest, signature: signature.toString('base64'),
+    schemaVersion: 2, algorithm: 'Ed25519', keyId, catalogDigest, revocationsDigest, signature: signature.toString('base64'),
   }, null, 2)}\n`)
 }
 
@@ -349,6 +445,8 @@ async function verifyCatalog(): Promise<void> {
     ? crypto.createPublicKey(verificationKey)
     : crypto.createPublicKey(crypto.createPrivateKey(signingKey!))
   const catalog = JSON.parse(await fsp.readFile(path.join(root, 'catalog/index.json'), 'utf8'))
+  const revocations = JSON.parse(await fsp.readFile(path.join(root, 'catalog/revoked.json'), 'utf8'))
+  validateRevocations(revocations)
   const signature = JSON.parse(await fsp.readFile(path.join(root, 'catalog/signature.json'), 'utf8'))
   if (signature.algorithm !== 'Ed25519' || typeof signature.keyId !== 'string' || typeof signature.signature !== 'string') {
     throw new Error('catalog signature metadata is invalid')
@@ -358,7 +456,13 @@ async function verifyCatalog(): Promise<void> {
   }
   const catalogDigest = digest(canonicalJson(catalog))
   if (signature.catalogDigest !== catalogDigest) throw new Error('catalog digest does not match its signature metadata')
-  if (!crypto.verify(null, Buffer.from(catalogDigest, 'hex'), publicKey, Buffer.from(signature.signature, 'base64'))) {
+  let signedDigest = catalogDigest
+  if (signature.schemaVersion === 2) {
+    const revocationsDigest = digest(canonicalJson(revocations))
+    if (signature.revocationsDigest !== revocationsDigest) throw new Error('revocation digest does not match its signature metadata')
+    signedDigest = digest(canonicalJson({ catalogDigest, revocationsDigest }))
+  }
+  if (!crypto.verify(null, Buffer.from(signedDigest, 'hex'), publicKey, Buffer.from(signature.signature, 'base64'))) {
     throw new Error('catalog signature verification failed')
   }
   process.stdout.write(`OK: signed catalog (${catalog.plugins?.length || 0} plugins, ${catalogDigest})\n`)
