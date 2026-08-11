@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | `storage.kv.read` | `storage.get/list` | 仅本插件命名空间 |
 | `storage.kv.write` | `storage.set/delete` | 仅本插件命名空间 |
-| `storage.secret.read` | `secrets.get` | 仅本插件加密 Secret，读取会审计 |
+| `storage.secret.read` | 保留兼容标识 | 当前宿主拒绝 `secrets.get`；Secret 明文不会进入 Runner |
 | `storage.secret.write` | `secrets.set/delete` | 仅本插件加密 Secret，变更会审计 |
 | `user.profile.self.read` | `users.getMyProfile` | 仅当前认证用户 |
 | `user.profile.any.read` | `users.getProfile` | 指定用户；必须由管理员 Action 发起 |
@@ -47,6 +47,7 @@
 | `notification.broadcast.send` | `notifications.sendToAll` | 全部有效站内用户；必须由管理员 Action 发起并审计，插件不能指定或扩展收件人集合 |
 | `network.read` | `network.fetch` 的 GET | 仅 manifest `network.allowedHosts`，带 SSRF/大小/超时限制 |
 | `network.write` | `network.fetch` 的 POST/PUT/PATCH/DELETE | 同上，写请求单独审批 |
+| `network.secret.use` | `secrets.fetch` | 仅 manifest 的精确 Secret scope 与主机；宿主注入，Runner 不接触明文，响应进行泄漏检测 |
 | `scheduler.read` | `scheduler.list` | 仅本插件任务 |
 | `scheduler.write` | `scheduler.upsert/delete` | 仅本插件任务；事件必须预先声明为 `schedule.<name>` |
 | `external-account.provider.read` | `externalAccounts.getProvider` | 仅当前已通过 EM 鉴权且绑定本插件的 Provider；不返回密钥或 EA 地址 |
@@ -84,6 +85,8 @@ SDK 故意把 `self` 与 `any` 操作拆成不同方法，避免一个可选 `us
 外部账号适配器还多一重资源绑定：能力调用不接受 `providerId` 参数，宿主只从本次
 API Key/HMAC 已认证请求注入 Provider，并再次核对 `adapterPluginId + adapterId`。
 因此即使插件猜到其他账号或 Provider ID，也不能跨接入读取或修改。
+
+Agent Tool、Provider operation 与 Workflow Activity 中的 `requiredCapabilities` 只能引用顶层 `capabilities` 已声明的能力。扩展声明不会扩大授权，管理员身份、官方签名或宿主工作流也不能替插件补上未声明能力。事件订阅本身不授予数据读取权；它只能看到 `dataFields` 中的精确事件字段。
 
 积分变更另有宿主账本：`pluginId + idempotencyKey` 全局唯一。Runner 因超时重试时，
 同一请求仅返回原交易，不会重复扣款或重复发放；同一幂等键改变金额、用户或

@@ -31,4 +31,45 @@ export default definePlugin({
       return { message: `已向 ${result.recipientCount} 位有效站内用户发送问候`, recipientCount: result.recipientCount }
     },
   },
+  agentTools: {
+    async 'read-greeting-stats'(_input, ctx) {
+      const [greetings, available] = await Promise.all([
+        ctx.storage.get('greetingCount'),
+        ctx.storage.get('availableContentCount'),
+      ])
+      return {
+        greetingCount: Number(greetings?.value || 0),
+        availableContentCount: Number(available?.value || 0),
+      }
+    },
+  },
+  eventSubscriptions: {
+    async 'on-content-available'(event, ctx) {
+      const marker = `event/${event.id}`
+      if (await ctx.storage.get(marker)) return { deduplicated: true }
+      const record = await ctx.storage.get('availableContentCount')
+      await ctx.storage.set('availableContentCount', Number(record?.value || 0) + 1)
+      await ctx.storage.set(marker, {
+        type: event.type,
+        time: event.time,
+        workId: event.data.workId || null,
+        serverId: event.data.serverId || null,
+      })
+      return { deduplicated: false }
+    },
+  },
+  providers: {
+    'greeting-provider': {
+      operations: {
+        async 'compose-greeting'(input) {
+          return { message: `你好，${String(input.name).trim()}！` }
+        },
+      },
+    },
+  },
+  workflowActivities: {
+    async 'compose-workflow-greeting'(input) {
+      return { message: `你好，${String(input.name).trim()}！` }
+    },
+  },
 })

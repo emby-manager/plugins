@@ -1,0 +1,108 @@
+name: Revoke official plugin package
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_id:
+        description: Exact plugin ID
+        required: true
+        type: string
+      package_digest:
+        description: Exact SHA-256 package digest
+        required: true
+        type: string
+      reason:
+        description: Public revocation reason
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: official-plugin-catalog-publish
+  cancel-in-progress: false
+
+jobs:
+  revoke:
+    runs-on: ubuntu-latest
+    environment: plugin-signing
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.10.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @emby-manager/plugin-cli
+      - name: Add exact package revocation
+        env:
+          PLUGIN_ID: ${{ inputs.plugin_id }}
+          PACKAGE_DIGEST: ${{ inputs.package_digest }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const pluginId = process.env.PLUGIN_ID.trim()
+          const packageDigest = process.env.PACKAGE_DIGEST.trim().toLowerCase()
+          const reason = process.env.REASON.trim()
+          if (!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/.test(pluginId)) throw new Error('invalid plugin ID')
+          if (!/^[a-f0-9]{64}$/.test(packageDigest)) throw new Error('invalid package digest')
+          if (!reason || reason.length > 1000) throw new Error('invalid reason')
+          const catalog = JSON.parse(fs.readFileSync('catalog/index.json', 'utf8'))
+          const item = catalog.plugins.find(plugin => plugin.id === pluginId)
+          if (!item?.versions.some(version => version.packageDigest === packageDigest)) {
+            throw new Error('digest is not published for this plugin')
+          }
+          const revoked = JSON.parse(fs.readFileSync('catalog/revoked.json', 'utf8'))
+          if (revoked.publisherKeys.length) throw new Error('official publisher key revocation is forbidden')
+          const existing = revoked.packages.find(record => record.packageDigest === packageDigest)
+          if (existing && (existing.pluginId !== pluginId || existing.reason !== reason)) {
+            throw new Error('digest already has a different revocation record')
+          }
+          if (!existing) revoked.packages.push({ pluginId, packageDigest, revokedAt: new Date().toISOString(), reason })
+          revoked.updatedAt = new Date().toISOString()
+          revoked.packages.sort((a, b) => a.pluginId.localeCompare(b.pluginId) || a.packageDigest.localeCompare(b.packageDigest))
+          fs.writeFileSync('catalog/revoked.json', `${JSON.stringify(revoked, null, 2)}\n`)
+          NODE
+      - name: Sign and verify catalog plus revocations
+        env:
+          EM_PLUGIN_SIGNING_KEY: ${{ secrets.EM_PLUGIN_SIGNING_KEY }}
+          EM_PLUGIN_SIGNING_KEY_ID: ${{ vars.EM_PLUGIN_SIGNING_KEY_ID }}
+        run: |
+          node packages/cli/dist/index.js catalog-sign
+          node packages/cli/dist/index.js catalog-verify
+      - name: Publish signed revocation pair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog/revoked.json catalog/signature.json
+          mapfile -t staged_files < <(git diff --cached --name-only | sort)
+          if (( ${#staged_files[@]} != 2 )) \
+            || [[ "${staged_files[0]}" != "catalog/revoked.json" ]] \
+            || [[ "${staged_files[1]}" != "catalog/signature.json" ]]; then
+            printf 'Refusing revocation publish with unexpected staged files:\n%s\n' "${staged_files[*]}" >&2
+            exit 1
+          fi
+          git commit -m "security(catalog): revoke ${{ inputs.plugin_id }} package"
+          commit_sha=$(git rev-parse HEAD)
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$commit_sha" \
+            -f state=success -f context='Single plugin scope' \
+            -f description='Only the signed revocation pair is staged' -f target_url="$run_url" >/dev/null
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$commit_sha" \
+            -f state=success -f context='validate' \
+            -f description='Signed package revocation verified' -f target_url="$run_url" >/dev/null
+          git fetch origin main
+          if [[ "$(git rev-parse HEAD^)" != "$(git rev-parse origin/main)" ]]; then
+            echo 'main advanced during signing; retry the revocation against the new head' >&2
+            exit 1
+          fi
+          git push origin HEAD:main
+          git push origin HEAD:develop-from-here

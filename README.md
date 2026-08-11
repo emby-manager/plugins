@@ -2,7 +2,7 @@
 
 这里是 Emby Manager Plugin System V2 的官方插件合集，也是第三方插件开发所需的 SDK、CLI、Schema、模板和公开规范仓库。
 
-插件与 EM 核心代码完全解耦。服务端代码运行在独立 Runner 中，不能导入 EM 源码、Prisma、Express、Node 内置模块或环境变量；需要数据、通知、网络、调度、登录设备或播放会话时，只能调用经过声明、签名上限约束和管理员逐项批准的宿主能力。插件页面使用声明式 JSON，由 EM 自己渲染，因此会自动继承站点主题、移动端布局和交互样式。
+插件与 EM 核心代码完全解耦。服务端代码运行在独立 Runner 中，不能导入 EM 源码、Prisma、Express、Node 内置模块或环境变量；需要数据、通知、网络、调度、登录设备或播放会话时，只能调用经过声明、签名上限约束和管理员逐项批准的宿主能力。插件还可以声明 Agent Tool、领域事件订阅、Provider operation、Workflow Activity 和官方工作流模板；宿主负责 Schema 校验、幂等、审计、策略、审批、重试及流程状态。插件页面使用声明式 JSON，由 EM 自己渲染，因此会自动继承站点主题、移动端布局和交互样式。
 
 ## 快速开始
 
@@ -135,6 +135,17 @@ const playing = await ctx.sessions.listMyPlaybackSessions()
 - 插件自己的后台管理页、配置和业务逻辑也应放在插件目录中；不要向 EM 核心添加插件专用页面或数据库表。
 - 每个插件拥有物理隔离的 SQLite 数据库。普通数据使用 `ctx.storage`，敏感配置使用 `ctx.secrets`，不得依赖 EM 主库结构。
 
+## Agent-ready 扩展
+
+- `agentTools`：向 EM 的 AI 运维注册具名工具。只读工具可以直接执行；`SUPERVISED_WRITE` 工具只能经 Policy、审批和 Tool Executor 执行。
+- `eventSubscriptions`：订阅精确事件类型，并用 `dataFields` 指定可见字段。事件至少投递一次，插件必须用 `event.id` 去重。
+- `providers`：提供元数据、字幕、下载、求片、线路、支付、通知或质量能力；输入输出都受签名包内的 Schema 约束。
+- `workflowActivities`：只返回步骤数据，不能持有或修改工作流状态；超时、重试、暂停、恢复和补偿由宿主持有。
+- `workflowTemplates`：只在官方签名包中进入官方模板目录。模板不会绕过任何 Activity 权限或写入审批。
+- `secretScopes`：管理员把 Secret 配置给宿主，插件只能通过 `ctx.secrets.fetch()` 请求指定主机。明文不会进入 Runner。
+
+这些声明不是权限通配符。每个扩展引用的能力必须同时出现在顶层 `capabilities`，运行时仍会核对当前包摘要、发布者信任、能力上限和管理员授权。完整示例见 [`plugins/hello-world`](plugins/hello-world)。
+
 ## 发布方式
 
 ### 提交到官方合集
@@ -165,6 +176,8 @@ EM 默认信任本仓库目录使用的 Ed25519 公钥；官方发布者不可�
 - 公钥：[`keys/emby-manager-official-2026-01.pub.pem`](keys/emby-manager-official-2026-01.pub.pem)
 
 官方签名只确认来源和完整性，不代表自动授权；管理员仍然要对每个插件版本逐项批准能力。
+
+若某个已经发布的官方包被确认存在安全问题，维护者通过受保护的 `Revoke official plugin package` Action 按精确 SHA-256 吊销。Action 会把 `catalog/index.json` 与 `catalog/revoked.json` 一起纳入新版目录签名；EM 周期同步后会隐藏该版本、立即停止摘要命中的 Runner、禁用其调度与事件投递，并要求人工解除隔离和重新审批。站点后台始终不能吊销或替换官方发布者公钥。
 
 ## 参与前请阅读
 
