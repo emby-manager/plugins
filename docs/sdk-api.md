@@ -1,6 +1,6 @@
 # Plugin SDK API 参考
 
-Plugin V2 服务端入口通过 `definePlugin` 定义 Action、Hook 和外部账号适配器。
+Plugin V2 服务端入口通过 `definePlugin` 定义 Action、Hook、Agent Tool、事件订阅、Provider、Workflow Activity 和外部账号适配器。
 每个回调都会收到 `PluginContext`；下表是 Runner 唯一允许的宿主交互面。
 方法的完整 TypeScript 类型以 `@emby-manager/plugin-sdk` 导出的 `PluginContext` 为准。
 
@@ -36,8 +36,9 @@ Action 路由触发；`hooks` 只会收到 `plugin.json.events` 已声明且由�
 | --- | --- | --- |
 | `storage.get(key)` / `list(prefix?, limit?)` | 读取本插件独立 SQLite 数据；key/prefix 最长 191，limit 1–100 | `storage.kv.read` |
 | `storage.set(key, value)` / `delete(key)` | 单值最大 256 KB | `storage.kv.write` |
-| `secrets.get(key)` | 返回解密值或 `null`，读取会审计 | `storage.secret.read` |
+| `secrets.get(key)` | 已废弃；当前宿主始终拒绝把 Secret 明文交给 Runner | 不可用 |
 | `secrets.set(key, value)` / `delete(key)` | 密文只在本插件独立库保存 | `storage.secret.write` |
+| `secrets.fetch({scope, url, ...})` | 宿主向声明主机注入 Secret 并代发请求；响应会做泄漏检测 | `network.secret.use` |
 | `users.getMyProfile()` / `getMyEmail()` | 当前用户资料/邮箱 | `user.*.self.read` |
 | `users.getProfile(userId)` / `getEmail(userId)` | 管理员读指定用户 | `user.*.any.read` |
 | `users.listDirectory({search?, limit?})` | 管理员用户目录，最多 100 条 | `user.directory.read` |
@@ -99,6 +100,59 @@ const paid = await ctx.points.spend({
 最多 32 个请求头、512 KB 请求体、2 MB 响应体，15 秒超时。调度名称必须匹配
 `[a-z][a-z0-9-]{0,63}`，间隔为 60 秒至 30 天，payload 最大 64 KB，并且
 `schedule.<name>` 必须先写入 manifest 的 `events`。
+
+## Agent Tool、事件、Provider 与 Activity
+
+扩展的 `handler` 对应 `definePlugin` 中映射表的 key：
+
+```ts
+export default definePlugin({
+  agentTools: {
+    async 'read-status'(input, ctx) { return { ok: true } },
+  },
+  eventSubscriptions: {
+    async 'on-content-available'(event, ctx) {
+      if (await ctx.storage.get(`event/${event.id}`)) return
+      await ctx.storage.set(`event/${event.id}`, { time: event.time })
+    },
+  },
+  providers: {
+    metadata: { operations: { async search(input, ctx) { return { items: [] } } } },
+  },
+  workflowActivities: {
+    async normalize(input, ctx) { return { normalized: String(input.title).trim() } },
+  },
+})
+```
+
+约束如下：
+
+- Agent Tool 名称必须以 `<plugin.id>.` 开头。`READ_ONLY` 只允许读；`SUPERVISED_WRITE` 必须通过 EM 安全执行内核，不提供直接调用入口。
+- 每次扩展调用都会绑定当前包摘要、调用者、租户、关联 ID、输入摘要和幂等键，并写入宿主调用账本。输出只保存经过 Schema 和 Secret 检查的有界 JSON。
+- `eventSubscriptions` 只接收 `dataFields` 白名单投影。投递是持久化、至少一次的；失败有退避、死信和人工回放，所以 Handler 必须以 CloudEvent `id` 去重。
+- Provider operation 是宿主可发现的协议适配点，不能直接访问 EM/EA 数据库。每个 operation 独立声明输入、输出和所需能力。
+- Workflow Activity 只执行一个可重试步骤并返回数据。它不能决定重试、改变状态或自行推进下一步；这些都属于 Durable Workflow。
+- 官方工作流模板目录只收录官方签名插件。模板仍然受每个 Activity 的精确权限、包摘要和宿主策略约束。
+
+## Secret Broker
+
+在 `plugin.json` 中同时声明 `network.secret.use`、`network.allowedHosts` 和精确 `secretScopes`：
+
+```json
+{
+  "capabilities": ["network.secret.use"],
+  "network": { "allowedHosts": ["api.example.com"] },
+  "secretScopes": [{
+    "name": "provider-api-key",
+    "title": "Provider API Key",
+    "required": true,
+    "allowedHosts": ["api.example.com"],
+    "placement": { "type": "header", "name": "Authorization", "prefix": "Bearer " }
+  }]
+}
+```
+
+管理员在 EM 配置 Secret；Runner 只提交 scope、URL 和业务请求。宿主检查 scope 与目标主机后注入请求头，并拒绝重定向、私网地址以及在响应正文或响应头中回显明文、URL 编码值或 Base64 值。
 
 ## 外部账号适配器
 

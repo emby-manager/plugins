@@ -72,6 +72,11 @@ plugins/my-plugin/
 - 会话读取、撤销设备、播放会话读取、停止播放分别申请；
 - 外部网络只列出必要的精确主机，并区分 `network.read` 与 `network.write`；
 - 敏感值写入 `ctx.secrets`，普通状态写入 `ctx.storage`；
+- 外部 API Secret 使用 `secretScopes + ctx.secrets.fetch()`，不要调用已废弃的 `secrets.get()`；
+- Agent Tool 名称使用插件 ID 命名空间，读写模式必须准确；
+- 事件订阅只申请必要 `dataFields`，并按 `event.id` 实现幂等；
+- Workflow Activity 只返回步骤结果，不自行保存流程状态或决定重试；
+- Provider operation 和 Activity 的每项能力都必须在顶层逐项声明；
 - 插件不保存、记录或返回用户 JWT、密码、API Key、Webhook Key；
 - 插件不尝试访问其他插件的数据文件或 EM 主数据库。
 
@@ -111,6 +116,9 @@ export default definePlugin({
 - 普通用户不能触发管理员操作；
 - 外部账号适配器不能跨 Provider、不能泄露内部 ID 或凭据；
 - 输出不包含路径、Token、Secret 或未声明数据。
+- 事件重复投递不会重复产生副作用；
+- 扩展输入输出不符合 Schema 时会被拒绝；
+- Runner 超时、停用或包更新后能安全恢复。
 
 外部账号适配器不是官方插件专属能力。插件可以在 `externalAccountAdapters`
 中声明自己的 `id`、显示名称、`kind`、基础路径和逐条路由；其中 `kind` 是插件

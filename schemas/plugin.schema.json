@@ -52,7 +52,7 @@
           "playback.session.self.read", "playback.session.any.read",
           "playback.session.self.stop", "playback.session.any.stop",
           "notification.self.send", "notification.any.send", "notification.broadcast.send",
-          "network.read", "network.write", "scheduler.read", "scheduler.write",
+          "network.read", "network.write", "network.secret.use", "scheduler.read", "scheduler.write",
           "external-account.provider.read", "external-account.provider.health.read",
           "external-account.account.read",
           "external-account.account.create", "external-account.account.authenticate",
@@ -65,6 +65,15 @@
           "external-account.account.manage.read", "external-account.account.manage.reconcile",
           "external-account.account.manage.delete", "external-account.audit.read"
         ]
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memoryMb": { "type": "integer", "minimum": 32, "maximum": 512 },
+        "maxConcurrentInvocations": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "storageMb": { "type": "integer", "minimum": 1, "maximum": 256 }
       }
     },
     "network": {
@@ -92,6 +101,153 @@
       }
     },
     "events": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,95}$" } },
+    "eventSubscriptions": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "handler", "dataFields"],
+        "properties": {
+          "type": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$", "maxLength": 128 },
+          "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "dataFields": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+){0,7}$", "maxLength": 191 } },
+          "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 30000 }
+        }
+      }
+    },
+    "agentTools": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "title", "description", "handler", "access", "executionMode", "systemOfRecord", "requiredCapabilities", "inputSchema", "outputSchema"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,95}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "access": { "enum": ["user", "admin", "service"] },
+          "executionMode": { "enum": ["READ_ONLY", "SUPERVISED_WRITE"] },
+          "systemOfRecord": { "enum": ["EM", "EA", "MEDIA_CATALOG", "EXTERNAL_PROVIDER", "PLUGIN", "OBSERVABILITY"] },
+          "requiredCapabilities": { "$ref": "#/$defs/capabilities" },
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" },
+          "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 30000 },
+          "maximumResultCount": { "type": "integer", "minimum": 1, "maximum": 10000 }
+        }
+      }
+    },
+    "providers": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "kind", "operations"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 500 },
+          "kind": { "enum": ["METADATA", "SUBTITLE", "DOWNLOAD", "REQUEST", "ROUTE", "PAYMENT", "NOTIFICATION", "QUALITY"] },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "handler", "requiredCapabilities", "inputSchema", "outputSchema"],
+              "properties": {
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+                "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+                "requiredCapabilities": { "$ref": "#/$defs/capabilities" },
+                "inputSchema": { "type": "object" },
+                "outputSchema": { "type": "object" },
+                "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 60000 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "workflowActivities": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "title", "handler", "requiredCapabilities", "inputSchema", "outputSchema"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 500 },
+          "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "requiredCapabilities": { "$ref": "#/$defs/capabilities" },
+          "inputSchema": { "type": "object" },
+          "outputSchema": { "type": "object" },
+          "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 60000 },
+          "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 }
+        }
+      }
+    },
+    "workflowTemplates": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "title", "description", "inputSchema", "steps"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "version": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "inputSchema": { "type": "object" },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "activity"],
+              "properties": {
+                "key": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+                "activity": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "secretScopes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "title", "allowedHosts", "placement"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 500 },
+          "required": { "type": "boolean" },
+          "allowedHosts": { "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "maxLength": 253 } },
+          "placement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "name"],
+            "properties": {
+              "type": { "const": "header" },
+              "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9-]{0,63}$" },
+              "prefix": { "type": "string", "maxLength": 32 }
+            }
+          }
+        }
+      }
+    },
     "pages": {
       "type": "array",
       "maxItems": 32,
@@ -160,5 +316,13 @@
     },
     "configSchema": { "type": "object" },
     "defaultConfig": { "type": "object" }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 58,
+      "items": { "type": "string" }
+    }
   }
 }
