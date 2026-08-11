@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-10T10:04:12.200Z",
+  "generatedAt": "2026-08-11T18:55:10.646Z",
   "plugins": [
     {
       "id": "dev.emby-manager.hello-world",
@@ -9,6 +9,17 @@
       "author": "Emby Manager",
       "repository": "https://github.com/emby-manager/plugins",
       "versions": [
+        {
+          "version": "1.2.0",
+          "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/dev.emby-manager.hello-world-v1.2.0/dev.emby-manager.hello-world-1.2.0.emp",
+          "packageDigest": "cf8aa72c5af5a51cbd37cd3abce168a14a8dd354c047b73d5ca33230c99aeb40",
+          "keyId": "emby-manager-official-2026-01",
+          "engines": {
+            "embyManager": ">=0.1.9.4 <0.2.0",
+            "node": ">=24"
+          },
+          "publishedAt": "2026-08-11T18:55:10.639Z"
+        },
         {
           "version": "1.1.0",
           "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/dev.emby-manager.hello-world-v1.1.0/dev.emby-manager.hello-world-1.1.0.emp",
