@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "dev.emby-manager.hello-world",
   "name": "Hello World",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "apiVersion": "2",
   "description": "通过受控通知能力向当前用户问好，并演示管理员安全广播。",
   "author": "Emby Manager",
@@ -16,6 +16,109 @@
     "user.profile.self.read",
     "notification.self.send",
     "notification.broadcast.send"
+  ],
+  "runtime": {
+    "memoryMb": 96,
+    "maxConcurrentInvocations": 4,
+    "storageMb": 16
+  },
+  "eventSubscriptions": [
+    {
+      "type": "content.available",
+      "handler": "on-content-available",
+      "dataFields": ["contentRequestId", "workId", "serverId"],
+      "timeoutMs": 5000
+    }
+  ],
+  "agentTools": [
+    {
+      "name": "dev.emby-manager.hello-world.greeting-stats",
+      "title": "读取问候统计",
+      "description": "只读返回插件已发送和已观察到的问候示例统计。",
+      "handler": "read-greeting-stats",
+      "access": "admin",
+      "executionMode": "READ_ONLY",
+      "systemOfRecord": "PLUGIN",
+      "requiredCapabilities": ["storage.kv.read"],
+      "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["greetingCount", "availableContentCount"],
+        "properties": {
+          "greetingCount": { "type": "integer", "minimum": 0 },
+          "availableContentCount": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "timeoutMs": 5000,
+      "maximumResultCount": 1
+    }
+  ],
+  "providers": [
+    {
+      "id": "greeting-provider",
+      "name": "问候文本 Provider",
+      "description": "演示无副作用、可被宿主编排的 Provider operation。",
+      "kind": "NOTIFICATION",
+      "operations": [
+        {
+          "name": "compose",
+          "handler": "compose-greeting",
+          "requiredCapabilities": [],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 } }
+          },
+          "outputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["message"],
+            "properties": { "message": { "type": "string", "minLength": 1, "maxLength": 200 } }
+          },
+          "timeoutMs": 3000
+        }
+      ]
+    }
+  ],
+  "workflowActivities": [
+    {
+      "name": "compose-greeting",
+      "title": "生成问候文本",
+      "description": "仅返回数据，流程状态、重试和审批仍由 EM 工作流持有。",
+      "handler": "compose-workflow-greeting",
+      "requiredCapabilities": [],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 } }
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": { "message": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      },
+      "timeoutMs": 3000,
+      "maxAttempts": 3
+    }
+  ],
+  "workflowTemplates": [
+    {
+      "id": "compose-greeting",
+      "version": "1.0",
+      "title": "生成一条问候",
+      "description": "官方模板示例：由宿主工作流调用插件 Activity，并由宿主持有执行状态。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 } }
+      },
+      "steps": [{ "key": "compose", "activity": "compose-greeting" }]
+    }
   ],
   "actions": [
     { "name": "greet", "title": "向我问好", "access": "user" },
