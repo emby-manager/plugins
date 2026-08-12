@@ -38,7 +38,7 @@ Action 路由触发；`hooks` 只会收到 `plugin.json.events` 已声明且由�
 | `storage.set(key, value)` / `delete(key)` | 单值最大 256 KB | `storage.kv.write` |
 | `secrets.get(key)` | 已废弃；当前宿主始终拒绝把 Secret 明文交给 Runner | 不可用 |
 | `secrets.set(key, value)` / `delete(key)` | 密文只在本插件独立库保存 | `storage.secret.write` |
-| `secrets.fetch({scope, url, ...})` | 宿主向声明主机注入 Secret 并代发请求；响应会做泄漏检测 | `network.secret.use` |
+| `secrets.fetch({scope, url, ...})` | 宿主向声明主机注入 Secret 并代发请求；响应会做泄漏检测 | GET: `network.secret.use`；写方法另需 `network.write` |
 | `users.getMyProfile()` / `getMyEmail()` | 当前用户资料/邮箱 | `user.*.self.read` |
 | `users.getProfile(userId)` / `getEmail(userId)` | 管理员读指定用户 | `user.*.any.read` |
 | `users.listDirectory({search?, limit?})` | 管理员用户目录，最多 100 条 | `user.directory.read` |
@@ -131,6 +131,7 @@ export default definePlugin({
 - 每次扩展调用都会绑定当前包摘要、调用者、租户、关联 ID、输入摘要和幂等键，并写入宿主调用账本。输出只保存经过 Schema 和 Secret 检查的有界 JSON。
 - `eventSubscriptions` 只接收 `dataFields` 白名单投影。投递是持久化、至少一次的；失败有退避、死信和人工回放，所以 Handler 必须以 CloudEvent `id` 去重。
 - Provider operation 是宿主可发现的协议适配点，不能直接访问 EM/EA 数据库。每个 operation 独立声明输入、输出和所需能力。
+- 声明 `protocol` 的 Provider 还要通过版本化兼容校验。`emby-manager.download@1.0` 的 `submit/cancel` 是 `SUPERVISED_WRITE`，只能由宿主 Workflow 经 Policy/审批/Executor 调用；`status` 是 `READ_ONLY`。完整线 Schema 见 [Provider 协议](provider-protocols.md)。
 - Workflow Activity 只执行一个可重试步骤并返回数据。它不能决定重试、改变状态或自行推进下一步；这些都属于 Durable Workflow。
 - 官方工作流模板目录只收录官方签名插件。模板仍然受每个 Activity 的精确权限、包摘要和宿主策略约束。
 
@@ -153,6 +154,7 @@ export default definePlugin({
 ```
 
 管理员在 EM 配置 Secret；Runner 只提交 scope、URL 和业务请求。宿主检查 scope 与目标主机后注入请求头，并拒绝重定向、私网地址以及在响应正文或响应头中回显明文、URL 编码值或 Base64 值。
+GET 只要求 `network.secret.use`；任何写方法还必须额外声明并获批 `network.write`，Secret Broker 不能被用来绕过网络读写权限拆分。
 
 ## 外部账号适配器
 

@@ -16,7 +16,7 @@
 
 `scheduler.read` 与 `scheduler.write` 使用宿主持久化调度，不允许插件自己创建计时进程。写入任务的插件需先在 `events` 中声明 `schedule.<name>`，再调用 `ctx.scheduler.upsert(name, intervalSeconds, payload)`；最短间隔 60 秒，最长 30 天。更新、回滚或卸载插件时，旧调度都会清除。
 
-“已声明”和“已批准”是两个独立且缺一不可的条件。调用时宿主先确认当前 manifest 明确声明了精确能力，再检查管理员授权；旧包或异常数据库中残留的 Grant 不会让未声明能力生效。`*.self.*` 只允许当前认证用户，`*.any.*` 还要求管理员 Action 上下文；全站通知必须另外声明 `notification.broadcast.send`，且收件人集合完全由宿主生成，插件不能上传用户 ID 列表扩大范围。`network.read` 只允许 GET，其他写方法必须另行申请 `network.write`，且两者仍受 `allowedHosts` 限制。
+“已声明”和“已批准”是两个独立且缺一不可的条件。调用时宿主先确认当前 manifest 明确声明了精确能力，再检查管理员授权；旧包或异常数据库中残留的 Grant 不会让未声明能力生效。`*.self.*` 只允许当前认证用户，`*.any.*` 还要求管理员 Action 上下文；全站通知必须另外声明 `notification.broadcast.send`，且收件人集合完全由宿主生成，插件不能上传用户 ID 列表扩大范围。`network.read` 只允许 GET，其他写方法必须另行申请 `network.write`，且两者仍受 `allowedHosts` 限制。同一规则也适用于 `secrets.fetch()`：Secret 注入始终要求 `network.secret.use`，非 GET 请求还会在每次调用时再次检查 `network.write`。
 
 登录设备和播放会话遵循“本地快照读取、显式控制写入”：
 
@@ -34,6 +34,7 @@ Agent-ready 扩展采用相同的零信任规则：
 
 - Agent Tool、Provider 和 Activity 的输入输出都按签名包中的受限 Schema 校验，且持久化前拒绝疑似 Token、密码、私钥或 Secret 字段；
 - 写入型 Agent Tool 不能直接执行，必须经 Policy Engine 动态风险计算、必要审批、执行前再次鉴权和幂等执行器；
+- Provider operation 同样必须声明 `READ_ONLY` 或 `SUPERVISED_WRITE`；后者只接受宿主持有的 Workflow 执行上下文，插件页面、普通 Action 和直接扩展调用都不能伪造受监督执行；
 - 事件订阅只收到精确 `dataFields` 投影，投递至少一次并有独立 Inbox、退避、死信和回放；
 - Activity 只能返回数据，不能写 Durable Workflow 的状态；
 - 每次调用绑定当前活动包 SHA-256，插件更新、回滚或解除紧急隔离后必须重新审批；

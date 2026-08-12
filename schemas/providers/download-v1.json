@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "emby-manager.download",
+  "version": "1.0",
+  "kind": "DOWNLOAD",
+  "operations": [
+    {
+      "name": "submit",
+      "executionMode": "SUPERVISED_WRITE",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["commandId", "contentRequest", "target"],
+        "properties": {
+          "commandId": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "contentRequest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "mediaType", "externalIds"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "mediaType": { "enum": ["MOVIE", "SERIES"] },
+              "year": { "type": "integer", "minimum": 1800, "maximum": 2200 },
+              "season": { "type": "integer", "minimum": 0, "maximum": 999 },
+              "externalIds": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["provider", "value"],
+                  "properties": {
+                    "provider": { "type": "string", "minLength": 1, "maxLength": 64 },
+                    "value": { "type": "string", "minLength": 1, "maxLength": 191 }
+                  }
+                }
+              }
+            }
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["serverId"],
+            "properties": { "serverId": { "type": "string", "minLength": 1, "maxLength": 191 } }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["providerJobRef", "state", "observedAt"],
+        "properties": {
+          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "state": { "enum": ["ACCEPTED", "RECONCILIATION_REQUIRED"] },
+          "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
+          "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 }
+        }
+      }
+    },
+    {
+      "name": "status",
+      "executionMode": "READ_ONLY",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["providerJobRef", "contentRequestId"],
+        "properties": {
+          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "contentRequestId": { "type": "string", "minLength": 1, "maxLength": 191 }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["providerJobRef", "state", "observedAt"],
+        "properties": {
+          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "state": { "enum": ["ACCEPTED", "SEARCHING", "DOWNLOADING", "ORGANIZING", "FULFILLED", "FAILED", "CANCELLED", "UNKNOWN"] },
+          "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
+          "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "progressPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+          "message": { "type": "string", "maxLength": 1000 }
+        }
+      }
+    },
+    {
+      "name": "cancel",
+      "executionMode": "SUPERVISED_WRITE",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["commandId", "providerJobRef", "contentRequestId", "reason"],
+        "properties": {
+          "commandId": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "contentRequestId": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["providerJobRef", "state", "observedAt"],
+        "properties": {
+          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "state": { "enum": ["CANCELLED", "ALREADY_TERMINAL", "RECONCILIATION_REQUIRED"] },
+          "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
+          "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 }
+        }
+      }
+    }
+  ]
+}

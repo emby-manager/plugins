@@ -9,6 +9,7 @@ import { build as esbuild } from 'esbuild'
 import semver from 'semver'
 import yauzl from 'yauzl'
 import yazl from 'yazl'
+import { assertProviderProtocol, type ProviderProtocolSpec } from './providerProtocols.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const fixedDate = new Date('1980-01-01T00:00:00.000Z')
@@ -22,6 +23,9 @@ const forbiddenExtensions = new Set([
 type Ajv2020Constructor = new (options?: object) => { compile(schema: object): ValidateFunction }
 const Ajv2020 = ((Ajv2020Import as unknown as { default?: unknown }).default || Ajv2020Import) as unknown as Ajv2020Constructor
 const pluginSchema = JSON.parse(fs.readFileSync(path.join(root, 'schemas/plugin.schema.json'), 'utf8'))
+const providerProtocolSpecs = [
+  JSON.parse(fs.readFileSync(path.join(root, 'schemas/providers/download-v1.json'), 'utf8')) as ProviderProtocolSpec,
+]
 const validatePluginSchema = new Ajv2020({ allErrors: true, strict: true }).compile(pluginSchema)
 
 const safeConfigSchemaKeywords = new Set([
@@ -99,6 +103,7 @@ function validateManifest(input: unknown): void {
     extensionSchemas.push([`${tool.name}.inputSchema`, tool.inputSchema], [`${tool.name}.outputSchema`, tool.outputSchema])
   }
   for (const provider of manifest.providers || []) {
+    assertProviderProtocol(provider, providerProtocolSpecs)
     const operations = provider.operations.map((operation: any) => operation.name)
     if (new Set(operations).size !== operations.length) throw new Error(`provider ${provider.id} operations must be unique`)
     for (const operation of provider.operations) {

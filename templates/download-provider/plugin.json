@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 2,
+  "id": "dev.example.download-provider",
+  "name": "Download Provider",
+  "version": "0.1.0",
+  "apiVersion": "2",
+  "description": "A governed Download Provider V1 template.",
+  "author": "Your name",
+  "license": "MIT",
+  "engines": { "embyManager": ">=0.1.9.5-rc13 <0.2.0", "node": ">=24" },
+  "entrypoints": { "server": "src/server.ts" },
+  "capabilities": ["network.secret.use", "network.write"],
+  "runtime": { "memoryMb": 96, "maxConcurrentInvocations": 2, "storageMb": 16 },
+  "network": { "allowedHosts": ["provider.example.com"] },
+  "secretScopes": [
+    {
+      "name": "provider-api",
+      "title": "Provider API Token",
+      "required": true,
+      "allowedHosts": ["provider.example.com"],
+      "placement": { "type": "header", "name": "Authorization", "prefix": "Bearer " }
+    }
+  ],
+  "providers": [
+    {
+      "id": "download",
+      "name": "Download Provider",
+      "description": "Submit, observe and cancel external download jobs through the host workflow.",
+      "kind": "DOWNLOAD",
+      "protocol": { "id": "emby-manager.download", "version": "1.0" },
+      "operations": [
+        {
+          "name": "submit",
+          "handler": "submit",
+          "executionMode": "SUPERVISED_WRITE",
+          "requiredCapabilities": ["network.secret.use", "network.write"],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["commandId", "contentRequest", "target"],
+            "properties": {
+              "commandId": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "contentRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "title", "mediaType", "externalIds"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1, "maxLength": 191 },
+                  "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "mediaType": { "enum": ["MOVIE", "SERIES"] },
+                  "year": { "type": "integer", "minimum": 1800, "maximum": 2200 },
+                  "season": { "type": "integer", "minimum": 0, "maximum": 999 },
+                  "externalIds": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["provider", "value"],
+                      "properties": {
+                        "provider": { "type": "string", "minLength": 1, "maxLength": 64 },
+                        "value": { "type": "string", "minLength": 1, "maxLength": 191 }
+                      }
+                    }
+                  }
+                }
+              },
+              "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["serverId"],
+                "properties": { "serverId": { "type": "string", "minLength": 1, "maxLength": 191 } }
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["providerJobRef", "state", "observedAt"],
+            "properties": {
+              "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "state": { "enum": ["ACCEPTED", "RECONCILIATION_REQUIRED"] },
+              "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
+              "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 }
+            }
+          },
+          "timeoutMs": 30000
+        },
+        {
+          "name": "status",
+          "handler": "status",
+          "executionMode": "READ_ONLY",
+          "requiredCapabilities": ["network.secret.use"],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["providerJobRef", "contentRequestId"],
+            "properties": {
+              "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "contentRequestId": { "type": "string", "minLength": 1, "maxLength": 191 }
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["providerJobRef", "state", "observedAt"],
+            "properties": {
+              "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "state": { "enum": ["ACCEPTED", "SEARCHING", "DOWNLOADING", "ORGANIZING", "FULFILLED", "FAILED", "CANCELLED", "UNKNOWN"] },
+              "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
+              "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "progressPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+              "message": { "type": "string", "maxLength": 1000 }
+            }
+          },
+          "timeoutMs": 15000
+        },
+        {
+          "name": "cancel",
+          "handler": "cancel",
+          "executionMode": "SUPERVISED_WRITE",
+          "requiredCapabilities": ["network.secret.use", "network.write"],
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["commandId", "providerJobRef", "contentRequestId", "reason"],
+            "properties": {
+              "commandId": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "contentRequestId": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          },
+          "outputSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["providerJobRef", "state", "observedAt"],
+            "properties": {
+              "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+              "state": { "enum": ["CANCELLED", "ALREADY_TERMINAL", "RECONCILIATION_REQUIRED"] },
+              "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
+              "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 }
+            }
+          },
+          "timeoutMs": 30000
+        }
+      ]
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["baseUrl"],
+    "properties": {
+      "baseUrl": { "type": "string", "minLength": 8, "maxLength": 2048, "title": "Provider API URL" }
+    }
+  },
+  "defaultConfig": { "baseUrl": "https://provider.example.com" }
+}
