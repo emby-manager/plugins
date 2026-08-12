@@ -32,15 +32,17 @@ CLI 会逐字义比较规范化后的线 Schema，避免同名 operation 实际�
 | Operation | 模式 | 语义 |
 | --- | --- | --- |
 | `submit` | `SUPERVISED_WRITE` | 使用宿主稳定 `commandId` 创建或复用外部作业；含糊结果必须返回 `RECONCILIATION_REQUIRED` |
-| `status` | `READ_ONLY` | 读取 Provider 自己拥有的作业事实；`UNKNOWN` 不能被解释为成功或失败 |
+| `status` | `READ_ONLY` | 按稳定 `commandId`（可附已知作业 ID）读取 Provider 事实；`UNKNOWN` 不能被解释为成功或失败 |
 | `cancel` | `SUPERVISED_WRITE` | 使用新的稳定命令取消作业；不能删除 EM 的请求、目录或审计事实 |
 
 `submit` 与 `cancel` 即使已声明能力，也只能由宿主持有的 Workflow 在通过 Policy、
 必要审批和执行前再次鉴权后调用。普通 Action、Agent Tool 或管理员页面不能直接
 把 `supervised=true` 传给 Runner。`status` 只报告事实，不推进 Workflow。
 
-Provider 必须把 `commandId` 作为上游幂等身份。宿主没收到 HTTP 响应时不会盲目
-重发写入，而是先用 `status` 对账；无法证明结果时保持人工可见的待对账状态。
+Provider 必须把 `commandId` 作为上游幂等身份，并支持在作业 ID 尚未知时按该命令
+查询。宿主没收到 HTTP 响应时不会盲目重发写入，而是先用 `status` 对账；无法
+证明结果时保持人工可见的待对账状态。`ACCEPTED` 及任何已知进度必须带真实
+`providerJobRef`，只有 `RECONCILIATION_REQUIRED` / `UNKNOWN` 可以暂时为 `null`。
 
 ## Secret 与不可信输出
 

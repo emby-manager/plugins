@@ -38,6 +38,14 @@ test('official download protocol requires exact operation modes and wire schemas
   assert.throws(() => assertProviderProtocol(drifted, [download]), /outputSchema does not match/)
 })
 
+test('download recovery can query an uncertain submit by stable command ID', () => {
+  const status = download.operations.find(operation => operation.name === 'status')!
+  assert.deepEqual(status.inputSchema.required, ['commandId', 'contentRequestId'])
+  assert.deepEqual((status.outputSchema.properties as Record<string, any>).providerJobRef.type, ['string', 'null'])
+  const submit = download.operations.find(operation => operation.name === 'submit')!
+  assert.deepEqual((submit.outputSchema.properties as Record<string, any>).providerJobRef.type, ['string', 'null'])
+})
+
 test('reserved protocol identities cannot be spoofed and custom protocols stay unverified', () => {
   const unsupported = manifest()
   unsupported.protocol.version = '2.0'
