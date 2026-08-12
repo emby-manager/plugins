@@ -35,7 +35,8 @@ Agent-ready 扩展采用相同的零信任规则：
 - Agent Tool、Provider 和 Activity 的输入输出都按签名包中的受限 Schema 校验，且持久化前拒绝疑似 Token、密码、私钥或 Secret 字段；
 - 写入型 Agent Tool 不能直接执行，必须经 Policy Engine 动态风险计算、必要审批、执行前再次鉴权和幂等执行器；
 - Provider operation 同样必须声明 `READ_ONLY` 或 `SUPERVISED_WRITE`；后者只接受宿主持有的 Workflow 执行上下文，插件页面、普通 Action 和直接扩展调用都不能伪造受监督执行；
-- 事件订阅只收到精确 `dataFields` 投影，投递至少一次并有独立 Inbox、退避、死信和回放；
+- 事件订阅必须匹配公开合同版本，并同时经过发布者事件上限和按包摘要绑定的字段审批；Runner 只收到精确 `dataFields` 投影及最小化 Broker 信封；
+- 投递至少一次并有独立队列、退避、死信和安全重放；旧包、已撤权字段和已吊销发布者不能通过重放恢复访问；
 - Activity 只能返回数据，不能写 Durable Workflow 的状态；
 - 每次调用绑定当前活动包 SHA-256，插件更新、回滚或解除紧急隔离后必须重新审批；
 - 紧急停用会立即杀死 Runner、禁用调度、停止事件投递并留下不可变审计。解除隔离只回到待审批，不能自动恢复原授权。
@@ -50,4 +51,4 @@ Agent-ready 扩展采用相同的零信任规则：
 - `storage.secret.write`
 - `user.profile.self.read`
 
-未签名插件不能注册网络 Secret、跨用户能力、写入型 Agent Tool或进入官方工作流模板目录。官方发布者不可由站点后台撤销；具体官方包可以由受保护 Action 按摘要写入与目录共同签名的吊销清单。EM 命中后停止 Runner 并隔离该包。第三方发布者撤销后，其插件 Runner 同样停止，历史审计和包摘要继续保留。
+未签名插件不能订阅平台领域事件、注册网络 Secret、跨用户能力、写入型 Agent Tool 或进入官方工作流模板目录。官方发布者不可由站点后台撤销；具体官方包可以由受保护 Action 按摘要写入与目录共同签名的吊销清单。EM 命中后停止 Runner 并隔离该包。第三方发布者撤销后，其插件 Runner 同样停止，历史审计和包摘要继续保留。

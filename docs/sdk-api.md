@@ -129,7 +129,8 @@ export default definePlugin({
 
 - Agent Tool 名称必须以 `<plugin.id>.` 开头。`READ_ONLY` 只允许读；`SUPERVISED_WRITE` 必须通过 EM 安全执行内核，不提供直接调用入口。
 - 每次扩展调用都会绑定当前包摘要、调用者、租户、关联 ID、输入摘要和幂等键，并写入宿主调用账本。输出只保存经过 Schema 和 Secret 检查的有界 JSON。
-- `eventSubscriptions` 只接收 `dataFields` 白名单投影。投递是持久化、至少一次的；失败有退避、死信和人工回放，所以 Handler 必须以 CloudEvent `id` 去重。
+- `eventSubscriptions` 必须声明 `contractVersion`，事件类型和字段必须存在于 [公开事件合同](../schemas/events/plugin-events-v1.json)。只接收 `dataFields` 白名单投影；`source` 固定为 `/em/plugin-event-broker`，内部 subject、trace、资源版本、文件路径等元数据不会进入 Runner。
+- 投递是持久化、至少一次的；失败有退避、死信和受约束人工回放，所以 Handler 必须以 CloudEvent `id` 去重。包更新、发布者范围变化或字段撤权后，旧投递不能重放。
 - Provider operation 是宿主可发现的协议适配点，不能直接访问 EM/EA 数据库。每个 operation 独立声明输入、输出和所需能力。
 - 声明 `protocol` 的 Provider 还要通过版本化兼容校验。`emby-manager.download@1.0` 的 `submit/cancel` 是 `SUPERVISED_WRITE`，只能由宿主 Workflow 经 Policy/审批/Executor 调用；`status` 是 `READ_ONLY`。完整线 Schema 见 [Provider 协议](provider-protocols.md)。
 - Workflow Activity 只执行一个可重试步骤并返回数据。它不能决定重试、改变状态或自行推进下一步；这些都属于 Durable Workflow。

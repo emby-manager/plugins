@@ -142,18 +142,13 @@ export interface PluginNetworkResponse {
 export interface PluginEventEnvelope<T = Record<string, unknown>> {
   specversion: '1.0'
   id: string
-  source: string
+  /** Internal producer identity is deliberately hidden by the host. */
+  source: '/em/plugin-event-broker'
   type: string
-  subject?: string
   time: string
   datacontenttype: 'application/json'
-  dataschema?: string
   tenantId: string
   correlationId: string
-  causationId?: string
-  resourceVersion?: string
-  traceparent?: string
-  tracestate?: string
   /** Contains only dataFields explicitly declared by this subscription. */
   data: T
 }

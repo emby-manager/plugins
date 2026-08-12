@@ -10,6 +10,10 @@ import semver from 'semver'
 import yauzl from 'yauzl'
 import yazl from 'yazl'
 import { assertProviderProtocol, type ProviderProtocolSpec } from './providerProtocols.js'
+import {
+  assertEventSubscriptions,
+  type PluginEventContractRegistry,
+} from './eventContracts.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const fixedDate = new Date('1980-01-01T00:00:00.000Z')
@@ -26,6 +30,9 @@ const pluginSchema = JSON.parse(fs.readFileSync(path.join(root, 'schemas/plugin.
 const providerProtocolSpecs = [
   JSON.parse(fs.readFileSync(path.join(root, 'schemas/providers/download-v1.json'), 'utf8')) as ProviderProtocolSpec,
 ]
+const eventContractRegistry = JSON.parse(
+  fs.readFileSync(path.join(root, 'schemas/events/plugin-events-v1.json'), 'utf8'),
+) as PluginEventContractRegistry
 const validatePluginSchema = new Ajv2020({ allErrors: true, strict: true }).compile(pluginSchema)
 
 const safeConfigSchemaKeywords = new Set([
@@ -86,6 +93,7 @@ function validateManifest(input: unknown): void {
     || manifest.workflowTemplates?.length,
   )
   if (needsServer && !manifest.entrypoints?.server) throw new Error('server extensions require a server entrypoint')
+  assertEventSubscriptions(manifest.eventSubscriptions || [], eventContractRegistry)
   if (manifest.externalAccountAdapters?.length && !manifest.entrypoints?.server) {
     throw new Error('externalAccountAdapters requires a server entrypoint')
   }

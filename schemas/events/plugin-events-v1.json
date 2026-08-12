@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/emby-manager/plugins/schemas/events/plugin-events-v1.json",
+  "schemaVersion": 1,
+  "contracts": [
+    {
+      "type": "content.requested",
+      "version": "1.0",
+      "title": "内容请求已创建",
+      "description": "一个明确目标的求片请求已创建。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["contentRequestId", "workId", "targetType", "targetId"]
+    },
+    {
+      "type": "content.available",
+      "version": "1.0",
+      "title": "内容已经可播放",
+      "description": "目标 EA 已经确认对应内容具有可播放副本。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["contentRequestId", "workId", "releaseId", "serverId", "targetServerId", "reconciled"]
+    },
+    {
+      "type": "content.availability_lost",
+      "version": "1.0",
+      "title": "内容可用性丢失",
+      "description": "目录对账确认原有可播放发布已经失效。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["contentRequestId", "availabilityId", "targetServerId"]
+    },
+    {
+      "type": "fulfillment.status_changed",
+      "version": "1.0",
+      "title": "履约状态变化",
+      "description": "求片履约作业进入新的确定性状态。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["fulfillmentJobId", "contentRequestId", "status", "providerStatus"]
+    },
+    {
+      "type": "library.scan_started",
+      "version": "1.0",
+      "title": "媒体库扫描开始",
+      "description": "EA 已开始一次媒体库扫描。",
+      "sensitivity": "LOW",
+      "dataFields": ["scanRunId", "library", "trigger"]
+    },
+    {
+      "type": "library.scan_finished",
+      "version": "1.0",
+      "title": "媒体库扫描完成",
+      "description": "EA 已完成一次媒体库扫描并返回有界统计。",
+      "sensitivity": "LOW",
+      "dataFields": ["scanRunId", "library", "trigger", "status", "totalFiles", "scannedFiles", "newItems", "updatedItems", "deletedItems", "scrapedFailed", "probeFailed", "errorCount"]
+    },
+    {
+      "type": "catalog.item_deleted",
+      "version": "1.0",
+      "title": "EA 媒体项已删除",
+      "description": "EA 报告一个媒体项已从其目录中删除。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["serverId", "item.Id", "item.Name", "item.Type", "observedAt"]
+    },
+    {
+      "type": "catalog.replica_deleted",
+      "version": "1.0",
+      "title": "目录副本已删除",
+      "description": "EM 目录已经撤销一组副本。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["serverId", "eaItemId", "replicaIds", "releaseIds", "releasesUnavailable"]
+    },
+    {
+      "type": "catalog.work_merged",
+      "version": "1.0",
+      "title": "目录作品已合并",
+      "description": "管理员把重复作品合并到一个权威作品。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["sourceWorkId", "targetWorkId"]
+    },
+    {
+      "type": "catalog.work_split",
+      "version": "1.0",
+      "title": "目录作品已拆分",
+      "description": "管理员从作品中拆出一个独立作品。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["sourceWorkId", "targetWorkId"]
+    },
+    {
+      "type": "catalog.work_tombstoned",
+      "version": "1.0",
+      "title": "目录作品已停用",
+      "description": "管理员停用一个目录作品并撤销其发布。",
+      "sensitivity": "MEDIUM",
+      "dataFields": ["workId", "withdrawnReleaseCount"]
+    }
+  ]
+}
