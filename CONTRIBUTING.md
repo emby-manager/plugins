@@ -74,7 +74,7 @@ plugins/my-plugin/
 - 敏感值写入 `ctx.secrets`，普通状态写入 `ctx.storage`；
 - 外部 API Secret 使用 `secretScopes + ctx.secrets.fetch()`，不要调用已废弃的 `secrets.get()`；
 - Agent Tool 名称使用插件 ID 命名空间，读写模式必须准确；
-- 事件订阅只申请必要 `dataFields`，并按 `event.id` 实现幂等；
+- 事件订阅使用 [公开合同](schemas/events/plugin-events-v1.json) 中的精确 `contractVersion`，只申请必要 `dataFields`，并按 `event.id` 实现幂等；
 - Workflow Activity 只返回步骤结果，不自行保存流程状态或决定重试；
 - Provider operation 和 Activity 的每项能力都必须在顶层逐项声明；
 - 插件不保存、记录或返回用户 JWT、密码、API Key、Webhook Key；

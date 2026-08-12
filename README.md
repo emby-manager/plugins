@@ -138,7 +138,7 @@ const playing = await ctx.sessions.listMyPlaybackSessions()
 ## Agent-ready 扩展
 
 - `agentTools`：向 EM 的 AI 运维注册具名工具。只读工具可以直接执行；`SUPERVISED_WRITE` 工具只能经 Policy、审批和 Tool Executor 执行。
-- `eventSubscriptions`：订阅精确事件类型，并用 `dataFields` 指定可见字段。事件至少投递一次，插件必须用 `event.id` 去重。
+- `eventSubscriptions`：按 [公开事件合同](schemas/events/plugin-events-v1.json) 声明精确类型、`contractVersion` 和可见 `dataFields`。事件至少投递一次，插件必须用 `event.id` 去重；未签名插件不能订阅平台事件。
 - `providers`：提供元数据、字幕、下载、求片、线路、支付、通知或质量能力；输入输出都受签名包内的 Schema 约束。标准供应链 Provider 还必须匹配版本化线协议；当前规范与模板见 [Provider 协议](docs/provider-protocols.md)。
 - `workflowActivities`：只返回步骤数据，不能持有或修改工作流状态；超时、重试、暂停、恢复和补偿由宿主持有。
 - `workflowTemplates`：只在官方签名包中进入官方模板目录。模板不会绕过任何 Activity 权限或写入审批。

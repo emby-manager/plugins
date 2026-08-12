@@ -110,6 +110,7 @@
         "required": ["type", "handler", "dataFields"],
         "properties": {
           "type": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$", "maxLength": 128 },
+          "contractVersion": { "type": "string", "pattern": "^\\d+\\.\\d+$", "maxLength": 16 },
           "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
           "dataFields": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+){0,7}$", "maxLength": 191 } },
           "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 30000 }
