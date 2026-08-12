@@ -36,9 +36,11 @@ export default definePlugin({
           return await call(context, '/jobs', 'POST', input) as unknown as DownloadProviderSubmitOutput
         },
         async status(input: DownloadProviderStatusInput, context: PluginContext): Promise<DownloadProviderStatusOutput> {
-          const reference = encodeURIComponent(input.providerJobRef)
           const request = encodeURIComponent(input.contentRequestId)
-          return await call(context, `/jobs/${reference}?contentRequestId=${request}`, 'GET') as unknown as DownloadProviderStatusOutput
+          const lookup = input.providerJobRef
+            ? `/jobs/${encodeURIComponent(input.providerJobRef)}`
+            : `/jobs/by-command/${encodeURIComponent(input.commandId)}`
+          return await call(context, `${lookup}?contentRequestId=${request}`, 'GET') as unknown as DownloadProviderStatusOutput
         },
         async cancel(input: DownloadProviderCancelInput, context: PluginContext): Promise<DownloadProviderCancelOutput> {
           const reference = encodeURIComponent(input.providerJobRef)

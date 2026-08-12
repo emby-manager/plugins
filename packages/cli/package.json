@@ -1,6 +1,6 @@
 {
   "name": "@emby-manager/plugin-cli",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "type": "module",
   "bin": { "em-plugin": "dist/index.js" },
   "scripts": {

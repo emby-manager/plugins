@@ -51,7 +51,7 @@
         "additionalProperties": false,
         "required": ["providerJobRef", "state", "observedAt"],
         "properties": {
-          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "providerJobRef": { "type": ["string", "null"], "minLength": 1, "maxLength": 191 },
           "state": { "enum": ["ACCEPTED", "RECONCILIATION_REQUIRED"] },
           "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
           "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 }
@@ -64,8 +64,9 @@
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["providerJobRef", "contentRequestId"],
+        "required": ["commandId", "contentRequestId"],
         "properties": {
+          "commandId": { "type": "string", "minLength": 1, "maxLength": 191 },
           "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
           "contentRequestId": { "type": "string", "minLength": 1, "maxLength": 191 }
         }
@@ -75,7 +76,7 @@
         "additionalProperties": false,
         "required": ["providerJobRef", "state", "observedAt"],
         "properties": {
-          "providerJobRef": { "type": "string", "minLength": 1, "maxLength": 191 },
+          "providerJobRef": { "type": ["string", "null"], "minLength": 1, "maxLength": 191 },
           "state": { "enum": ["ACCEPTED", "SEARCHING", "DOWNLOADING", "ORGANIZING", "FULFILLED", "FAILED", "CANCELLED", "UNKNOWN"] },
           "observedAt": { "type": "string", "minLength": 20, "maxLength": 40 },
           "sourceVersion": { "type": "string", "minLength": 1, "maxLength": 191 },

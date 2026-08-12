@@ -95,19 +95,22 @@ export interface DownloadProviderSubmitInput {
 }
 
 export interface DownloadProviderSubmitOutput {
-  providerJobRef: string
+  /** Null only while the host must reconcile an uncertain submit by commandId. */
+  providerJobRef: string | null
   state: 'ACCEPTED' | 'RECONCILIATION_REQUIRED'
   observedAt: string
   sourceVersion?: string
 }
 
 export interface DownloadProviderStatusInput {
-  providerJobRef: string
+  commandId: string
+  providerJobRef?: string
   contentRequestId: string
 }
 
 export interface DownloadProviderStatusOutput {
-  providerJobRef: string
+  /** Null is valid only when state is UNKNOWN. */
+  providerJobRef: string | null
   state: 'ACCEPTED' | 'SEARCHING' | 'DOWNLOADING' | 'ORGANIZING' | 'FULFILLED' | 'FAILED' | 'CANCELLED' | 'UNKNOWN'
   observedAt: string
   sourceVersion?: string
@@ -115,8 +118,10 @@ export interface DownloadProviderStatusOutput {
   message?: string
 }
 
-export interface DownloadProviderCancelInput extends DownloadProviderStatusInput {
+export interface DownloadProviderCancelInput {
   commandId: string
+  providerJobRef: string
+  contentRequestId: string
   reason: string
 }
 
