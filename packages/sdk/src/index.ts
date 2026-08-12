@@ -64,6 +64,69 @@ export const PLUGIN_CAPABILITIES = [
 
 export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number]
 
+export type PluginProviderExecutionMode = 'READ_ONLY' | 'SUPERVISED_WRITE'
+
+export const EM_DOWNLOAD_PROVIDER_PROTOCOL = Object.freeze({
+  id: 'emby-manager.download',
+  version: '1.0',
+  kind: 'DOWNLOAD',
+  operations: Object.freeze({
+    submit: 'SUPERVISED_WRITE',
+    status: 'READ_ONLY',
+    cancel: 'SUPERVISED_WRITE',
+  }),
+} as const)
+
+export interface DownloadProviderContentRequest {
+  id: string
+  title: string
+  mediaType: 'MOVIE' | 'SERIES'
+  year?: number
+  season?: number
+  externalIds: Array<{ provider: string; value: string }>
+}
+
+export interface DownloadProviderSubmitInput {
+  /** Stable host command ID. The provider must use this as its retry identity. */
+  commandId: string
+  contentRequest: DownloadProviderContentRequest
+  /** Logical EM/EA target only. Provider credentials and URLs remain in the host Secret Broker. */
+  target: { serverId: string }
+}
+
+export interface DownloadProviderSubmitOutput {
+  providerJobRef: string
+  state: 'ACCEPTED' | 'RECONCILIATION_REQUIRED'
+  observedAt: string
+  sourceVersion?: string
+}
+
+export interface DownloadProviderStatusInput {
+  providerJobRef: string
+  contentRequestId: string
+}
+
+export interface DownloadProviderStatusOutput {
+  providerJobRef: string
+  state: 'ACCEPTED' | 'SEARCHING' | 'DOWNLOADING' | 'ORGANIZING' | 'FULFILLED' | 'FAILED' | 'CANCELLED' | 'UNKNOWN'
+  observedAt: string
+  sourceVersion?: string
+  progressPercent?: number
+  message?: string
+}
+
+export interface DownloadProviderCancelInput extends DownloadProviderStatusInput {
+  commandId: string
+  reason: string
+}
+
+export interface DownloadProviderCancelOutput {
+  providerJobRef: string
+  state: 'CANCELLED' | 'ALREADY_TERMINAL' | 'RECONCILIATION_REQUIRED'
+  observedAt: string
+  sourceVersion?: string
+}
+
 export interface PluginNetworkResponse {
   status: number
   ok: boolean
