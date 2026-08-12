@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "dev.emby-manager.hello-world",
   "name": "Hello World",
-  "version": "1.2.1",
+  "version": "1.2.0",
   "apiVersion": "2",
   "description": "通过受控通知能力向当前用户问好，并演示管理员安全广播。",
   "author": "Emby Manager",
@@ -25,7 +25,6 @@
   "eventSubscriptions": [
     {
       "type": "content.available",
-      "contractVersion": "1.0",
       "handler": "on-content-available",
       "dataFields": ["contentRequestId", "workId", "serverId"],
       "timeoutMs": 5000
