@@ -76,7 +76,7 @@ test('durable event handler deduplicates by CloudEvent id', async () => {
   const event = {
     specversion: '1.0' as const,
     id: 'event-1',
-    source: '/em/content-requests',
+    source: '/em/plugin-event-broker' as const,
     type: 'content.available',
     time: new Date(0).toISOString(),
     datacontenttype: 'application/json' as const,
