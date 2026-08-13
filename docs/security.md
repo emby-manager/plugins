@@ -10,7 +10,7 @@
 
 插件包不得包含原生模块、符号链接、嵌套压缩包、Shell 脚本或服务器端安装步骤。插件不得依赖 EM 内部文件、React 组件、Express、Prisma、环境变量或数据库连接。
 
-生产 Runner 禁止插件直接导入任何 Node.js 模块，并移除直接 `fetch` / `WebSocket` 等网络入口。外部请求必须使用 `ctx.network.fetch()` 或 `ctx.secrets.fetch()`，这样声明的域名范围、SSRF 检查、响应大小与审计才不会被绕过。Secret Broker 在宿主进程注入敏感请求头，Runner 永远拿不到管理员配置的明文；若上游把明文、URL 编码值或 Base64 值回显，宿主会丢弃整个响应。官方 CLI 会把 SDK 和依赖打包为单一 `.mjs` 入口，因此这个限制也兼容 EM 主程序的混淆和 Bytenode 构建。
+生产 Runner 禁止插件直接导入任何 Node.js 模块，并移除直接 `fetch` / `WebSocket` 等网络入口。外部请求必须使用 `ctx.network.fetch()` 或 `ctx.secrets.fetch()`，这样声明的域名范围、SSRF 检查、响应大小与审计才不会被绕过。Secret Broker 只向 HTTPS 的精确主机、方法和路径前缀注入敏感请求头，Runner 永远拿不到管理员配置的明文；若上游把明文、URL 编码值、Base64 或 Base64URL 值回显，宿主会丢弃整个响应。凭据授权同时绑定包 SHA-256、scope 合同摘要和凭据版本，升级、回滚、scope 扩权或解除隔离都必须显式重新授权。官方 CLI 会把 SDK 和依赖打包为单一 `.mjs` 入口，因此这个限制也兼容 EM 主程序的混淆和 Bytenode 构建。
 
 每个 manifest 可以进一步降低 `memoryMb`、`storageMb` 和 `maxConcurrentInvocations`。宿主以 V8 heap 上限和 RSS 监视限制内存，以独立 SQLite/WAL 大小限制存储，并限制并发调用。任何 Action、Hook、Adapter 或开放扩展执行超时都会杀死整个 Runner；这使同步死循环也无法在请求超时后继续占用 CPU。异常 Runner 被标记为降级并停止启用。
 

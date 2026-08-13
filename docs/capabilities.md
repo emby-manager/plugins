@@ -47,7 +47,7 @@
 | `notification.broadcast.send` | `notifications.sendToAll` | 全部有效站内用户；必须由管理员 Action 发起并审计，插件不能指定或扩展收件人集合 |
 | `network.read` | `network.fetch` 的 GET | 仅 manifest `network.allowedHosts`，带 SSRF/大小/超时限制 |
 | `network.write` | `network.fetch` 的 POST/PUT/PATCH/DELETE | 同上，写请求单独审批 |
-| `network.secret.use` | `secrets.fetch` | 仅 manifest 的精确 Secret scope 与主机；宿主注入，Runner 不接触明文，响应进行泄漏检测 |
+| `network.secret.use` | `secrets.fetch` | 仅 manifest 的精确 Secret scope、HTTPS 主机、方法和路径；授权绑定包/合同/凭据版本，宿主注入，Runner 不接触明文，响应进行泄漏检测 |
 | `scheduler.read` | `scheduler.list` | 仅本插件任务 |
 | `scheduler.write` | `scheduler.upsert/delete` | 仅本插件任务；事件必须预先声明为 `schedule.<name>` |
 | `external-account.provider.read` | `externalAccounts.getProvider` | 仅当前已通过 EM 鉴权且绑定本插件的 Provider；不返回密钥或 EA 地址 |

@@ -18,6 +18,8 @@
       "title": "Provider API Token",
       "required": true,
       "allowedHosts": ["provider.example.com"],
+      "allowedMethods": ["GET", "POST", "DELETE"],
+      "allowedPathPrefixes": ["/api/v1"],
       "placement": { "type": "header", "name": "Authorization", "prefix": "Bearer " }
     }
   ],
