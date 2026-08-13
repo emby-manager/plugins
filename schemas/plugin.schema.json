@@ -189,17 +189,29 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "title", "handler", "requiredCapabilities", "inputSchema", "outputSchema"],
+        "required": ["name", "title", "handler", "executionMode", "requiredCapabilities", "inputSchema", "outputSchema"],
         "properties": {
           "name": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
           "title": { "type": "string", "minLength": 1, "maxLength": 120 },
           "description": { "type": "string", "maxLength": 500 },
           "handler": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+          "executionMode": { "enum": ["READ_ONLY", "SUPERVISED_WRITE"] },
           "requiredCapabilities": { "$ref": "#/$defs/capabilities" },
           "inputSchema": { "type": "object" },
           "outputSchema": { "type": "object" },
           "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 60000 },
-          "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 }
+          "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "risk": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["resourceImportance", "reversible", "maximumAffectedResources", "estimatedCostMinor"],
+            "properties": {
+              "resourceImportance": { "enum": ["LOW", "NORMAL", "HIGH", "CRITICAL"] },
+              "reversible": { "type": "boolean" },
+              "maximumAffectedResources": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "estimatedCostMinor": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            }
+          }
         }
       }
     },
@@ -212,7 +224,7 @@
         "required": ["id", "version", "title", "description", "inputSchema", "steps"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
-          "version": { "type": "string", "pattern": "^\\d+\\.\\d+$" },
+          "version": { "type": "string", "pattern": "^\\d+\\.\\d+$", "maxLength": 16 },
           "title": { "type": "string", "minLength": 1, "maxLength": 120 },
           "description": { "type": "string", "minLength": 1, "maxLength": 500 },
           "inputSchema": { "type": "object" },
@@ -226,7 +238,8 @@
               "required": ["key", "activity"],
               "properties": {
                 "key": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
-                "activity": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" }
+                "activity": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+                "inputFrom": { "type": "string", "pattern": "^(?:workflow|[a-z][a-z0-9_.-]{0,63})$" }
               }
             }
           }
