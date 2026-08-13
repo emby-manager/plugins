@@ -14,6 +14,7 @@ import {
   assertEventSubscriptions,
   type PluginEventContractRegistry,
 } from './eventContracts.js'
+import { assertCatalogWorkflowTemplateSummaries, summarizeWorkflowTemplates } from './workflowCatalog.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const fixedDate = new Date('1980-01-01T00:00:00.000Z')
@@ -27,6 +28,7 @@ const forbiddenExtensions = new Set([
 type Ajv2020Constructor = new (options?: object) => { compile(schema: object): ValidateFunction }
 const Ajv2020 = ((Ajv2020Import as unknown as { default?: unknown }).default || Ajv2020Import) as unknown as Ajv2020Constructor
 const pluginSchema = JSON.parse(fs.readFileSync(path.join(root, 'schemas/plugin.schema.json'), 'utf8'))
+const catalogSchema = JSON.parse(fs.readFileSync(path.join(root, 'schemas/catalog.schema.json'), 'utf8'))
 const providerProtocolSpecs = [
   JSON.parse(fs.readFileSync(path.join(root, 'schemas/providers/download-v1.json'), 'utf8')) as ProviderProtocolSpec,
 ]
@@ -34,6 +36,32 @@ const eventContractRegistry = JSON.parse(
   fs.readFileSync(path.join(root, 'schemas/events/plugin-events-v1.json'), 'utf8'),
 ) as PluginEventContractRegistry
 const validatePluginSchema = new Ajv2020({ allErrors: true, strict: true }).compile(pluginSchema)
+const validateCatalogSchema = new Ajv2020({ allErrors: true, strict: true, validateFormats: false }).compile(catalogSchema)
+
+function validateCatalog(input: unknown): asserts input is Record<string, any> {
+  if (!validateCatalogSchema(input)) {
+    const details = validateCatalogSchema.errors?.map((error: ErrorObject) => `${error.instancePath || '/'} ${error.message}`).join('; ')
+    throw new Error(`catalog schema validation failed: ${details}`)
+  }
+  const catalog = input as Record<string, any>
+  if (Number.isNaN(Date.parse(catalog.generatedAt))) throw new Error('catalog generatedAt is invalid')
+  const pluginIds = new Set<string>()
+  for (const plugin of catalog.plugins) {
+    if (pluginIds.has(plugin.id)) throw new Error(`catalog plugin ID is duplicated: ${plugin.id}`)
+    pluginIds.add(plugin.id)
+    const versions = new Set<string>()
+    for (const version of plugin.versions) {
+      if (!semver.valid(version.version)) throw new Error(`catalog plugin ${plugin.id} version is invalid`)
+      if (versions.has(version.version)) throw new Error(`catalog plugin ${plugin.id} version is duplicated: ${version.version}`)
+      versions.add(version.version)
+      if (!String(version.downloadUrl).startsWith('https://')) throw new Error(`catalog plugin ${plugin.id} download URL must use HTTPS`)
+      if (version.publishedAt !== undefined && Number.isNaN(Date.parse(version.publishedAt))) {
+        throw new Error(`catalog plugin ${plugin.id} publishedAt is invalid`)
+      }
+    }
+  }
+  assertCatalogWorkflowTemplateSummaries(catalog)
+}
 
 const safeConfigSchemaKeywords = new Set([
   'type', 'title', 'description', 'default', 'properties', 'required', 'additionalProperties',
@@ -422,11 +450,13 @@ async function addCatalogEntry(archive: string, downloadUrl: string): Promise<vo
     packageDigest: verified.packageDigest,
     keyId: verified.signature.keyId,
     engines: verified.manifest.engines,
+    workflowTemplates: summarizeWorkflowTemplates(verified.manifest),
     publishedAt: new Date().toISOString(),
   })
   plugin.versions.sort((a: any, b: any) => semver.rcompare(a.version, b.version))
   catalog.plugins.sort((a: any, b: any) => a.id.localeCompare(b.id))
   catalog.generatedAt = new Date().toISOString()
+  validateCatalog(catalog)
   await fsp.writeFile(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`)
 }
 
@@ -469,6 +499,7 @@ async function signCatalog(): Promise<void> {
   if (!privateKeyText || !keyId) throw new Error('catalog signing requires EM_PLUGIN_SIGNING_KEY and EM_PLUGIN_SIGNING_KEY_ID')
   const catalogPath = path.join(root, 'catalog/index.json')
   const catalog = JSON.parse(await fsp.readFile(catalogPath, 'utf8'))
+  validateCatalog(catalog)
   const revocations = JSON.parse(await fsp.readFile(path.join(root, 'catalog/revoked.json'), 'utf8'))
   validateRevocations(revocations)
   const catalogDigest = digest(canonicalJson(catalog))
@@ -490,6 +521,7 @@ async function verifyCatalog(): Promise<void> {
     ? crypto.createPublicKey(verificationKey)
     : crypto.createPublicKey(crypto.createPrivateKey(signingKey!))
   const catalog = JSON.parse(await fsp.readFile(path.join(root, 'catalog/index.json'), 'utf8'))
+  validateCatalog(catalog)
   const revocations = JSON.parse(await fsp.readFile(path.join(root, 'catalog/revoked.json'), 'utf8'))
   validateRevocations(revocations)
   const signature = JSON.parse(await fsp.readFile(path.join(root, 'catalog/signature.json'), 'utf8'))
