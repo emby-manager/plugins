@@ -89,6 +89,7 @@
       "title": "生成问候文本",
       "description": "仅返回数据，流程状态、重试和审批仍由 EM 工作流持有。",
       "handler": "compose-workflow-greeting",
+      "executionMode": "READ_ONLY",
       "requiredCapabilities": [],
       "inputSchema": {
         "type": "object",
