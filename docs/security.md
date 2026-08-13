@@ -35,6 +35,7 @@ Agent-ready 扩展采用相同的零信任规则：
 - Agent Tool、Provider 和 Activity 的输入输出都按签名包中的受限 Schema 校验，且持久化前拒绝疑似 Token、密码、私钥或 Secret 字段；
 - 写入型 Agent Tool 不能直接执行，必须经 Policy Engine 动态风险计算、必要审批、执行前再次鉴权和幂等执行器；
 - Provider operation 同样必须声明 `READ_ONLY` 或 `SUPERVISED_WRITE`；后者只接受宿主持有的 Workflow 执行上下文，插件页面、普通 Action 和直接扩展调用都不能伪造受监督执行；
+- 写入型 Agent Tool 和 Workflow Activity 必须在签名 Manifest 中声明资源重要度、可逆性、最大影响数量与预计费用上限；缺少任一项会在打包、安装和运行时失败关闭，只读扩展不得携带写风险；
 - 事件订阅必须匹配公开合同版本，并同时经过发布者事件上限和按包摘要绑定的字段审批；Runner 只收到精确 `dataFields` 投影及最小化 Broker 信封；
 - 投递至少一次并有独立队列、退避、死信和安全重放；旧包、已撤权字段和已吊销发布者不能通过重放恢复访问；
 - Activity 只能返回数据，不能写 Durable Workflow 的状态；

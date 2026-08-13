@@ -15,6 +15,7 @@ import {
   type PluginEventContractRegistry,
 } from './eventContracts.js'
 import { assertCatalogWorkflowTemplateSummaries, summarizeWorkflowTemplates } from './workflowCatalog.js'
+import { assertAgentToolRiskDeclarations } from './agentToolContracts.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const fixedDate = new Date('1980-01-01T00:00:00.000Z')
@@ -151,6 +152,7 @@ function validateManifest(input: unknown): void {
     if (new Set(routes).size !== routes.length) throw new Error(`external account adapter ${adapter.id} has duplicate routes`)
   }
   const extensionSchemas: Array<[string, Record<string, unknown>]> = []
+  assertAgentToolRiskDeclarations(manifest.agentTools || [])
   for (const tool of manifest.agentTools || []) {
     if (!tool.name.startsWith(`${manifest.id}.`)) throw new Error(`agent tool ${tool.name} must use plugin ID namespace`)
     const missing = tool.requiredCapabilities.filter((capability: string) => !manifest.capabilities.includes(capability))
