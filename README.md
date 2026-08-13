@@ -142,6 +142,8 @@ const playing = await ctx.sessions.listMyPlaybackSessions()
 - `providers`：提供元数据、字幕、下载、求片、线路、支付、通知或质量能力；输入输出都受签名包内的 Schema 约束。标准供应链 Provider 还必须匹配版本化线协议；当前规范与模板见 [Provider 协议](docs/provider-protocols.md)。
 - `workflowActivities`：只返回步骤数据，不能持有或修改工作流状态；超时、重试、暂停、恢复和补偿由宿主持有。
 - `workflowTemplates`：只在官方签名包中进入官方模板目录。模板不会绕过任何 Activity 权限或写入审批。
+
+官方 Action 发布插件时，会从已经验签的包 Manifest 自动生成模板目录摘要，包含步骤数量、读写步骤、所需能力和写步骤风险上限。开发者不能单独编辑或上传这份摘要。目录元数据只用于发现与安装；EM 真正创建运行时仍以已安装包的摘要和 Manifest 为准，并重新经过能力批准、灰度、Policy 与审批。
 - `secretScopes`：管理员把 Secret 配置给宿主，插件只能通过 `ctx.secrets.fetch()` 请求指定主机。明文不会进入 Runner。
 
 这些声明不是权限通配符。每个扩展引用的能力必须同时出现在顶层 `capabilities`，运行时仍会核对当前包摘要、发布者信任、能力上限和管理员授权。完整示例见 [`plugins/hello-world`](plugins/hello-world)。
