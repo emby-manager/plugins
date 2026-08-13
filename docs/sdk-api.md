@@ -133,8 +133,49 @@ export default definePlugin({
 - 投递是持久化、至少一次的；失败有退避、死信和受约束人工回放，所以 Handler 必须以 CloudEvent `id` 去重。包更新、发布者范围变化或字段撤权后，旧投递不能重放。
 - Provider operation 是宿主可发现的协议适配点，不能直接访问 EM/EA 数据库。每个 operation 独立声明输入、输出和所需能力。
 - 声明 `protocol` 的 Provider 还要通过版本化兼容校验。`emby-manager.download@1.0` 的 `submit/cancel` 是 `SUPERVISED_WRITE`，只能由宿主 Workflow 经 Policy/审批/Executor 调用；`status` 是 `READ_ONLY`。完整线 Schema 见 [Provider 协议](provider-protocols.md)。
-- Workflow Activity 只执行一个可重试步骤并返回数据。它不能决定重试、改变状态或自行推进下一步；这些都属于 Durable Workflow。
-- 官方工作流模板目录只收录官方签名插件。模板仍然受每个 Activity 的精确权限、包摘要和宿主策略约束。
+- Workflow Activity 只执行一个可重试步骤并返回数据。它不能决定重试、改变状态或自行推进下一步；这些都属于 Durable Workflow。`executionMode` 默认为 `READ_ONLY`；`SUPERVISED_WRITE` 必须声明资源重要度、可逆性、最大影响数量和预计费用上限，缺少任一项都会拒绝打包或安装。
+- 官方工作流模板目录只收录官方签名插件。模板运行会固定插件 ID、模板版本和签名包摘要；相同业务键不能换参数或包版本。普通更新、停用、回滚和卸载会在仍有未终态运行时被阻止，紧急隔离仍可立即执行。
+- 模板步骤的 `inputFrom` 可设为 `workflow`（默认）或某个已完成的前置步骤 key，不能前向引用。`host-` 是宿主保留的步骤前缀，插件不得使用。
+- 写入 Activity 不会由模板直接调用。宿主先创建绑定精确参数、资源版本、调用者、租户、影响范围和有效期的审批；批准后由 Tool Executor 执行。进程中断后只读查询插件调用账本，无法形成确定事实时进入人工接管，绝不自动重发原写命令。
+- 模板创建与每一步推进都会重新检查 `plugin-extensions` 灰度；写步骤还要同时满足 `agent-execution` 灰度和监督执行环境开关，因此紧急停用会在运行中的下一道边界立即生效。
+
+一个两步只读模板可以这样串联前一步输出：
+
+```json
+{
+  "workflowActivities": [
+    {
+      "name": "lookup",
+      "title": "查询",
+      "handler": "lookup",
+      "executionMode": "READ_ONLY",
+      "requiredCapabilities": [],
+      "inputSchema": { "type": "object" },
+      "outputSchema": { "type": "object" }
+    },
+    {
+      "name": "summarize",
+      "title": "整理",
+      "handler": "summarize",
+      "executionMode": "READ_ONLY",
+      "requiredCapabilities": [],
+      "inputSchema": { "type": "object" },
+      "outputSchema": { "type": "object" }
+    }
+  ],
+  "workflowTemplates": [{
+    "id": "catalog-check",
+    "version": "1.0",
+    "title": "目录检查",
+    "description": "查询后整理结果",
+    "inputSchema": { "type": "object" },
+    "steps": [
+      { "key": "lookup", "activity": "lookup" },
+      { "key": "summary", "activity": "summarize", "inputFrom": "lookup" }
+    ]
+  }]
+}
+```
 
 ## Secret Broker
 

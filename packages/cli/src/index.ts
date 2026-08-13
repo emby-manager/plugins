@@ -123,13 +123,26 @@ function validateManifest(input: unknown): void {
   for (const activity of manifest.workflowActivities || []) {
     const missing = activity.requiredCapabilities.filter((capability: string) => !manifest.capabilities.includes(capability))
     if (missing.length) throw new Error(`workflow activity ${activity.name} uses undeclared capabilities: ${missing.join(', ')}`)
+    if (activity.executionMode === 'SUPERVISED_WRITE' && !activity.risk) {
+      throw new Error(`supervised workflow activity ${activity.name} must declare bounded risk`)
+    }
+    if ((activity.executionMode || 'READ_ONLY') === 'READ_ONLY' && activity.risk) {
+      throw new Error(`read-only workflow activity ${activity.name} cannot declare write risk`)
+    }
     extensionSchemas.push([`${activity.name}.inputSchema`, activity.inputSchema], [`${activity.name}.outputSchema`, activity.outputSchema])
   }
   const activities = new Set((manifest.workflowActivities || []).map((activity: any) => activity.name))
   for (const template of manifest.workflowTemplates || []) {
     const keys = template.steps.map((step: any) => step.key)
-    if (new Set(keys).size !== keys.length || template.steps.some((step: any) => !activities.has(step.activity))) {
-      throw new Error(`workflow template ${template.id} has duplicate steps or unknown activities`)
+    const earlier = new Set<string>()
+    const invalidReference = template.steps.some((step: any) => {
+      const valid = activities.has(step.activity)
+        && (!step.inputFrom || step.inputFrom === 'workflow' || earlier.has(step.inputFrom))
+      earlier.add(step.key)
+      return !valid
+    })
+    if (new Set(keys).size !== keys.length || keys.some((key: string) => key.startsWith('host-')) || invalidReference) {
+      throw new Error(`workflow template ${template.id} has duplicate or reserved steps, unknown activities, or a forward input reference`)
     }
     extensionSchemas.push([`${template.id}.inputSchema`, template.inputSchema])
   }
