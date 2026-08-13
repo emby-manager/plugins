@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-11T18:55:10.646Z",
+  "generatedAt": "2026-08-13T11:39:18.798Z",
   "plugins": [
     {
       "id": "dev.emby-manager.hello-world",
@@ -9,6 +9,32 @@
       "author": "Emby Manager",
       "repository": "https://github.com/emby-manager/plugins",
       "versions": [
+        {
+          "version": "1.2.1",
+          "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/dev.emby-manager.hello-world-v1.2.1/dev.emby-manager.hello-world-1.2.1.emp",
+          "packageDigest": "9a06e75e58fcdbab9376db7b8351e844c85a53a39395510c51a84464ffb69c14",
+          "keyId": "emby-manager-official-2026-01",
+          "engines": {
+            "embyManager": ">=0.1.9.4 <0.2.0",
+            "node": ">=24"
+          },
+          "workflowTemplates": [
+            {
+              "id": "compose-greeting",
+              "version": "1.0",
+              "title": "生成一条问候",
+              "description": "官方模板示例：由宿主工作流调用插件 Activity，并由宿主持有执行状态。",
+              "stepCount": 1,
+              "readOnlySteps": 1,
+              "supervisedWriteSteps": 0,
+              "requiredCapabilities": [],
+              "containsIrreversibleWrite": false,
+              "largestStepAffectedResources": 0,
+              "largestStepEstimatedCostMinor": 0
+            }
+          ],
+          "publishedAt": "2026-08-13T11:39:18.791Z"
+        },
         {
           "version": "1.2.0",
           "downloadUrl": "https://github.com/emby-manager/plugins/releases/download/dev.emby-manager.hello-world-v1.2.0/dev.emby-manager.hello-world-1.2.0.emp",
