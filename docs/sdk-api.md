@@ -190,13 +190,18 @@ export default definePlugin({
     "title": "Provider API Key",
     "required": true,
     "allowedHosts": ["api.example.com"],
+    "allowedMethods": ["GET"],
+    "allowedPathPrefixes": ["/v1/metadata"],
     "placement": { "type": "header", "name": "Authorization", "prefix": "Bearer " }
   }]
 }
 ```
 
-管理员在 EM 配置 Secret；Runner 只提交 scope、URL 和业务请求。宿主检查 scope 与目标主机后注入请求头，并拒绝重定向、私网地址以及在响应正文或响应头中回显明文、URL 编码值或 Base64 值。
-GET 只要求 `network.secret.use`；任何写方法还必须额外声明并获批 `network.write`，Secret Broker 不能被用来绕过网络读写权限拆分。
+管理员在 EM 配置 Secret；Runner 只提交 scope、URL 和业务请求。Secret scope 不接受通配域名；宿主只允许 HTTPS，并同时检查具体主机、HTTP 方法和路径前缀后注入请求头；重定向、私网地址以及在响应正文或响应头中回显明文、URL 编码值、Base64 或 Base64URL 值时，整份响应都会失败关闭。
+
+凭据授权绑定当前签名包 SHA-256、scope 合同摘要和凭据版本。插件升级、回滚或解除紧急隔离后，旧值仍可由管理员选择复用，但在显式重新授权前不能用于任何请求；扩大域名、方法、路径或改变注入 Header 也会改变合同摘要并立即阻止旧授权。未声明 `allowedMethods` 的兼容包严格按 GET-only 处理，未声明 `allowedPathPrefixes` 时为 `/`。
+
+GET 只要求 `network.secret.use`；任何写方法还必须同时在 scope 的 `allowedMethods` 中声明、由插件申请并获批 `network.write`。Secret Broker 不能被用来绕过网络读写权限拆分。
 
 ## 外部账号适配器
 

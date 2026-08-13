@@ -84,6 +84,25 @@ function validateManifest(input: unknown): void {
   if (manifest.capabilities.includes('network.secret.use') !== Boolean(manifest.secretScopes?.length)) {
     throw new Error('network.secret.use and secretScopes must be declared together')
   }
+  if (manifest.secretScopes?.length && !manifest.network?.allowedHosts?.length) {
+    throw new Error('secretScopes requires network.allowedHosts')
+  }
+  for (const scope of manifest.secretScopes || []) {
+    const outsideNetworkScope = scope.allowedHosts.filter((host: string) => !manifest.network.allowedHosts.some((rule: string) => {
+      const normalizedHost = host.toLowerCase().replace(/\.$/, '')
+      const normalizedRule = rule.toLowerCase().replace(/\.$/, '')
+      if (normalizedRule.startsWith('*.')) {
+        const suffix = normalizedRule.slice(1)
+        return normalizedHost.endsWith(suffix) && normalizedHost.length > suffix.length
+      }
+      return normalizedHost === normalizedRule
+    }))
+    if (outsideNetworkScope.length) throw new Error(`secret scope ${scope.name} exceeds network.allowedHosts`)
+    const headerName = scope.placement.name.toLowerCase()
+    if (['host', 'connection', 'content-length', 'transfer-encoding', 'proxy-authorization', 'trailer', 'upgrade'].includes(headerName)) {
+      throw new Error(`secret scope ${scope.name} uses a forbidden injection header`)
+    }
+  }
   const needsServer = Boolean(
     manifest.externalAccountAdapters?.length
     || manifest.eventSubscriptions?.length
