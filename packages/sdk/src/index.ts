@@ -66,6 +66,18 @@ export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number]
 
 export type PluginProviderExecutionMode = 'READ_ONLY' | 'SUPERVISED_WRITE'
 
+/**
+ * A signed upper bound used by EM's deterministic policy engine. It is
+ * required for every supervised Agent Tool and Workflow Activity; runtime
+ * inspection may lower these values but can never exceed the signed bound.
+ */
+export interface PluginWriteRisk {
+  resourceImportance: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL'
+  reversible: boolean
+  maximumAffectedResources: number
+  estimatedCostMinor: number
+}
+
 export const EM_DOWNLOAD_PROVIDER_PROTOCOL = Object.freeze({
   id: 'emby-manager.download',
   version: '1.0',

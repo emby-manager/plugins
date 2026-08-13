@@ -127,7 +127,7 @@ export default definePlugin({
 
 约束如下：
 
-- Agent Tool 名称必须以 `<plugin.id>.` 开头。`READ_ONLY` 只允许读；`SUPERVISED_WRITE` 必须通过 EM 安全执行内核，不提供直接调用入口。
+- Agent Tool 名称必须以 `<plugin.id>.` 开头。`READ_ONLY` 只允许读且禁止声明写风险；`SUPERVISED_WRITE` 必须声明 `risk.resourceImportance`、`reversible`、`maximumAffectedResources` 和 `estimatedCostMinor` 四项签名风险上限，并通过 EM 安全执行内核，不提供直接调用入口。宿主在审批预览和执行前重新读取当前签名包，并始终按签名最坏情况裁决；包更新后旧审批失效。
 - 每次扩展调用都会绑定当前包摘要、调用者、租户、关联 ID、输入摘要和幂等键，并写入宿主调用账本。输出只保存经过 Schema 和 Secret 检查的有界 JSON。
 - `eventSubscriptions` 必须声明 `contractVersion`，事件类型和字段必须存在于 [公开事件合同](../schemas/events/plugin-events-v1.json)。只接收 `dataFields` 白名单投影；`source` 固定为 `/em/plugin-event-broker`，内部 subject、trace、资源版本、文件路径等元数据不会进入 Runner。
 - 投递是持久化、至少一次的；失败有退避、死信和受约束人工回放，所以 Handler 必须以 CloudEvent `id` 去重。包更新、发布者范围变化或字段撤权后，旧投递不能重放。
