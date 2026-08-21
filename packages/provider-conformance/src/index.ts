@@ -99,8 +99,10 @@ function boundedInteger(value: number | undefined, fallback: number, minimum: nu
   return value
 }
 
-function digestOpaque(value: string) {
-  return createHash('sha256').update(value).digest('hex').slice(0, 16)
+function digestOpaque(value: string, reportSalt: string) {
+  // The salt is intentionally never returned. Even a short sequential job ID
+  // cannot be recovered from a report with a small dictionary.
+  return createHash('sha256').update(reportSalt).update('\0').update(value).digest('hex').slice(0, 16)
 }
 
 function asResult(value: unknown, allowedStates: readonly string[], maximumClockSkewMs: number): ProviderResult {
@@ -170,6 +172,7 @@ export async function runDownloadProviderConformance(
   const intervalMs = boundedInteger(options.reconciliationIntervalMs, 250, 0, 5_000)
   const maximumClockSkewMs = boundedInteger(options.maximumClockSkewMs, 10 * 60_000, 1_000, 24 * 60 * 60_000)
   const runId = randomUUID()
+  const reportSalt = randomUUID()
   const startedWallTime = new Date()
   const startedMonotonic = performance.now()
   const cases: DownloadProviderConformanceCase[] = []
@@ -236,7 +239,7 @@ export async function runDownloadProviderConformance(
       if (!recovered?.providerJobRef) throw new ConformanceFailure('COMMAND_ID_RECONCILIATION_FAILED')
       cases.push(caseResult('response-loss-reconciliation', 'PASSED', 'COMMAND_ID_RECOVERED', caseStarted, {
         states: [recovered.state],
-        providerJobRefDigest: digestOpaque(recovered.providerJobRef),
+        providerJobRefDigest: digestOpaque(recovered.providerJobRef, reportSalt),
       }))
     } catch (error) {
       const code = error instanceof ConformanceFailure ? error.code : 'INVOCATION_FAILED'
@@ -269,7 +272,7 @@ export async function runDownloadProviderConformance(
         duplicateSubmitPassed = true
         cases.push(caseResult('duplicate-submit-idempotency', 'PASSED', 'STABLE_PROVIDER_JOB_REF', caseStarted, {
           states: [first.state, second.state],
-          providerJobRefDigest: digestOpaque(providerJobRef),
+          providerJobRefDigest: digestOpaque(providerJobRef, reportSalt),
         }))
       } catch (error) {
         const code = error instanceof ConformanceFailure ? error.code : 'INVOCATION_FAILED'
@@ -304,7 +307,7 @@ export async function runDownloadProviderConformance(
           statusPassed = true
           cases.push(caseResult('status-monotonicity', 'PASSED', 'MONOTONIC_STATUS', caseStarted, {
             states: observations.map(item => item.state),
-            providerJobRefDigest: digestOpaque(providerJobRef),
+            providerJobRefDigest: digestOpaque(providerJobRef, reportSalt),
           }))
         } catch (error) {
           const code = error instanceof ConformanceFailure ? error.code : 'INVOCATION_FAILED'
@@ -338,7 +341,7 @@ export async function runDownloadProviderConformance(
             }
             cases.push(caseResult('duplicate-cancel-idempotency', 'PASSED', 'STABLE_CANCEL_RESULT', caseStarted, {
               states: [first.state, second.state],
-              providerJobRefDigest: digestOpaque(providerJobRef),
+              providerJobRefDigest: digestOpaque(providerJobRef, reportSalt),
             }))
           } catch (error) {
             const code = error instanceof ConformanceFailure ? error.code : 'INVOCATION_FAILED'
@@ -365,7 +368,7 @@ export async function runDownloadProviderConformance(
             if (!cancelled) throw new ConformanceFailure('CANCELLED_FACT_NOT_OBSERVED')
             cases.push(caseResult('cancelled-terminal-fact', 'PASSED', 'CANCELLED_CONFIRMED_BY_READ', caseStarted, {
               states: [cancelled.state],
-              providerJobRefDigest: digestOpaque(providerJobRef),
+              providerJobRefDigest: digestOpaque(providerJobRef, reportSalt),
             }))
           } catch (error) {
             const code = error instanceof ConformanceFailure ? error.code : 'INVOCATION_FAILED'
