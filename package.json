@@ -13,7 +13,7 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "validate": "npm run build && node packages/cli/dist/index.js validate-all && npm test",
-    "test": "node --experimental-strip-types --test plugins/*/src/*.test.ts packages/cli/src/*.test.ts",
+    "test": "node --experimental-strip-types --test plugins/*/src/*.test.ts packages/*/src/*.test.ts templates/*/src/*.test.ts",
     "plugin:build": "node packages/cli/dist/index.js build",
     "plugin:verify": "node packages/cli/dist/index.js verify"
   },
