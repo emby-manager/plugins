@@ -121,6 +121,7 @@ const playing = await ctx.sessions.listMyPlaybackSessions()
 | `templates/basic/` | 新插件模板 |
 | `packages/sdk/` | 插件可见的类型和 `definePlugin` API |
 | `packages/cli/` | manifest 校验、打包、摘要和签名验证工具 |
+| `packages/provider-conformance/` | 隔离沙箱中的 Download Provider 语义兼容矩阵 |
 | `schemas/plugin.schema.json` | Plugin V2 manifest 的机器可读 Schema |
 | `docs/` | 能力和安全规范 |
 | `catalog/` | 官方签名目录与吊销清单 |
@@ -147,6 +148,11 @@ const playing = await ctx.sessions.listMyPlaybackSessions()
 - `secretScopes`：管理员把 Secret 配置给宿主，插件只能通过 `ctx.secrets.fetch()` 请求指定主机。明文不会进入 Runner。
 
 这些声明不是权限通配符。每个扩展引用的能力必须同时出现在顶层 `capabilities`，运行时仍会核对当前包摘要、发布者信任、能力上限和管理员授权。完整示例见 [`plugins/hello-world`](plugins/hello-world)。
+
+Download Provider 还可以在可清理的隔离环境运行
+[`@emby-manager/provider-conformance`](packages/provider-conformance)，提前发现重复提交、
+响应丢失恢复、状态倒退和取消不可复核等语义问题。自测报告只用于开发反馈，不会
+自动换取官方签名、能力授权或生产资格。
 
 ## 发布方式
 
