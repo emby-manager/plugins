@@ -133,7 +133,7 @@ function routeAction(
   action: string,
   filters: DashboardFilters,
   view: AdminView,
-  variant: 'primary' | 'outline' = 'outline',
+  variant: 'default' | 'outline' = 'outline',
 ) {
   return { type: 'action', id, title, action, variant, input: navigationInput(filters, { view }) }
 }
@@ -141,10 +141,10 @@ function routeAction(
 function toolbar(filters: DashboardFilters) {
   return {
     id: 'toolbar',
-    columns: 6,
+    columns: 3,
     blocks: [
       routeAction('go-overview', '接入总览', 'load-admin', filters, 'overview'),
-      routeAction('go-create', '创建接入', 'load-admin', filters, 'create', 'primary'),
+      routeAction('go-create', '创建接入', 'load-admin', filters, 'create', 'default'),
       routeAction('go-provider', '接入管理', 'load-admin', filters, 'provider'),
       routeAction('go-accounts', '账号管理', 'load-accounts', filters, 'accounts'),
       routeAction('go-audits', '审计记录', 'load-audits', filters, 'audits'),
@@ -340,7 +340,7 @@ async function dashboard(
       title: '创建 EmbyBoss 接入',
       description: '创建后密钥只显示一次，请立即复制到 EmbyBoss。',
       blocks: oneTimeSecret ? [{
-        type: 'action', id: 'return-overview-after-create', title: '返回接入总览', action: 'load-admin', variant: 'primary',
+        type: 'action', id: 'return-overview-after-create', title: '返回接入总览', action: 'load-admin', variant: 'default',
         input: navigationInput(filters, { view: 'overview', providerId: '' }),
       }] : targetOptions(options).length ? [{
         type: 'form',
@@ -386,7 +386,7 @@ async function dashboard(
           title: '接入操作',
           columns: 3,
           blocks: [
-            { type: 'action', id: 'provider-toggle', title: toggle.title, action: 'manage-provider', variant: 'primary', input: { providerId: selectedProvider.id, operation: toggle.operation }, confirm: toggle.confirm },
+            { type: 'action', id: 'provider-toggle', title: toggle.title, action: 'manage-provider', variant: 'default', input: { providerId: selectedProvider.id, operation: toggle.operation }, confirm: toggle.confirm },
             { type: 'action', id: 'rotate-provider-secret', title: '重新生成接入密钥', action: 'manage-provider', variant: 'outline', input: { providerId: selectedProvider.id, operation: 'rotate-secret' }, confirm: '重新生成后旧密钥会立即失效，确定继续吗？' },
           ],
         },
