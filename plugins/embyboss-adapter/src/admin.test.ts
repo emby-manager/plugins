@@ -71,9 +71,55 @@ function context(config: ContextOptions = {}) {
   return { ctx, calls }
 }
 
-function pageOf(result: unknown) {
-  return (result as { page: { sections: Array<{ id: string; title?: string; blocks?: Array<Record<string, unknown>> }> } }).page
+interface AdminPageForTest {
+  version: number
+  sections: Array<{
+    id: string
+    title?: string
+    columns?: number
+    blocks?: Array<Record<string, unknown>>
+  }>
 }
+
+function pageOf(result: unknown): AdminPageForTest {
+  return (result as { page: AdminPageForTest }).page
+}
+
+function assertHostCompatiblePage(page: AdminPageForTest) {
+  assert.equal(page.version, 1)
+  for (const section of page.sections) {
+    assert.ok(
+      section.columns === undefined || [1, 2, 3].includes(section.columns),
+      `section.columns 无效: ${section.id}=${String(section.columns)}`,
+    )
+    for (const block of section.blocks || []) {
+      if (block.type !== 'action') continue
+      assert.ok(
+        block.variant === undefined || ['default', 'outline', 'destructive'].includes(String(block.variant)),
+        `action.variant 无效: ${section.id}/${String(block.id)}=${String(block.variant)}`,
+      )
+    }
+  }
+}
+
+test('所有管理视图均符合 EM 声明式页面协议', async () => {
+  const pages = [
+    pageOf(await adminActions['load-admin']({}, context().ctx)),
+    pageOf(await adminActions['load-admin']({ view: 'create' }, context().ctx)),
+    pageOf(await adminActions['load-admin']({ view: 'provider', providerId: provider.id }, context().ctx)),
+    pageOf(await adminActions['load-accounts']({}, context({ accountResult: [account] }).ctx)),
+    pageOf(await adminActions['load-audits']({}, context({ auditResult: [audit] }).ctx)),
+    pageOf(await adminActions['load-admin']({ view: 'help' }, context().ctx)),
+    pageOf(await adminActions['create-provider']({ name: '测试接入', target: 'server-1::' }, context().ctx)),
+    pageOf(await adminActions['manage-provider']({ providerId: provider.id, operation: 'disable' }, context().ctx)),
+  ]
+
+  for (const page of pages) assertHostCompatiblePage(page)
+
+  const toolbar = pages[0].sections.find((section) => section.id === 'toolbar')
+  assert.equal(toolbar?.columns, 3)
+  assert.equal(toolbar?.blocks?.length, 6)
+})
 
 test('默认视图只加载接入总览，不读取账号和审计分页', async () => {
   const { ctx, calls } = context()
