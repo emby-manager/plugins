@@ -146,20 +146,12 @@ const handlers = {
   }),
 
   'list-sessions': handler(async (_request, ctx) => {
-    const health = await ctx.externalAccounts.getHealth()
-    if (health.state !== 'online') {
-      return {
-        status: 503,
-        body: {
-          Message: health.message || 'EA 当前不可用',
-          message: health.message || 'EA 当前不可用',
-          code: 'EXTERNAL_PROVIDER_UNAVAILABLE',
-          health,
-        },
-      }
-    }
-    // EmbyBoss currently uses /Sessions as a connectivity probe. Returning a
-    // valid empty list is explicit degradation, not fabricated playback data.
+    // EmbyBoss polls /Sessions as a middleware liveness probe. Session data is
+    // intentionally outside this adapter's account-management boundary, and
+    // coupling the probe to a remote EA health request made a transient EA
+    // timeout look like the whole middleware/plugin had gone offline. Keep the
+    // compatibility endpoint local and deterministic; actual account calls
+    // still report their precise upstream failures.
     return { status: 200, body: [] }
   }),
 
