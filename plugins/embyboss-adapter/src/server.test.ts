@@ -101,28 +101,19 @@ test('EmbyBoss adapter passes pure-letter passwords through unchanged', async ()
   assert.equal(nextPassword, 'lettersOnly')
 })
 
-test('EmbyBoss adapter exposes provider connectivity without fabricating playback sessions', async () => {
-  const online = await handlers?.['list-sessions'](request(), {
+test('EmbyBoss session probe remains local and does not couple middleware liveness to EA health', async () => {
+  let healthCalls = 0
+  const response = await handlers?.['list-sessions'](request(), {
     externalAccounts: {
-      getHealth: async () => ({
-        state: 'online', checkedAt: '2026-08-10T00:00:00.000Z', latencyMs: 12,
-        version: 'v0.1.9.5', message: null,
-      }),
+      getHealth: async () => {
+        healthCalls += 1
+        throw new Error('EA health request must not run for the middleware probe')
+      },
     },
   } as never)
-  assert.equal(online?.status, 200)
-  assert.deepEqual(online?.body, [])
-
-  const offline = await handlers?.['list-sessions'](request(), {
-    externalAccounts: {
-      getHealth: async () => ({
-        state: 'offline', checkedAt: '2026-08-10T00:00:00.000Z', latencyMs: null,
-        version: null, message: 'connection refused',
-      }),
-    },
-  } as never)
-  assert.equal(offline?.status, 503)
-  assert.equal((offline?.body as any).code, 'EXTERNAL_PROVIDER_UNAVAILABLE')
+  assert.equal(response?.status, 200)
+  assert.deepEqual(response?.body, [])
+  assert.equal(healthCalls, 0)
 })
 
 test('EmbyBoss adapter converts denied host capabilities into bounded protocol errors', async () => {
