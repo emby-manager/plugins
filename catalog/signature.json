@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "algorithm": "Ed25519",
   "keyId": "emby-manager-official-2026-01",
-  "catalogDigest": "d913675fb51fa92232c9b1eb891298c0d68050707e26d62cc5b95afce94a19ce",
+  "catalogDigest": "c883bc5d394d86a2326995def5d6053d9b5fb637ebce5e7ea4a4ca9b6f2102f8",
   "revocationsDigest": "0a37112271b2c29973f0c340cfebf994254e5c0a6d3b28f5b63c080a5ce2f09a",
-  "signature": "r1OVivJyQbZfSmHx5YnE/kWNmqsxq1VbR4R4L5VfeOPpNFBKGkcaPoyOo9iGG5J+NTzpnQcCvELBdHr9558NDg=="
+  "signature": "U/WoEKEIEDNtw2aFn4Rit8WI2CRxvnLXEUYkqmRpOE6354HZlwWPRGOvFtQ3b2r4JUy+OnqtQLaf/EntKz2hBA=="
 }
